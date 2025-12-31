@@ -25,13 +25,21 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.sleepysoong.breeze.data.local.entity.RunningRecordEntity
 import com.sleepysoong.breeze.ui.components.GlassCard
 import com.sleepysoong.breeze.ui.theme.BreezeTheme
 
 @Composable
 fun HomeScreen(
+    latestRecord: RunningRecordEntity? = null,
+    weeklyRecords: List<RunningRecordEntity> = emptyList(),
     onStartRunning: () -> Unit = {}
 ) {
+    // 주간 통계 계산
+    val weeklyDistance = weeklyRecords.sumOf { it.totalDistance } / 1000.0
+    val weeklyTime = weeklyRecords.sumOf { it.totalTime } / 1000 / 60
+    val weeklyCount = weeklyRecords.size
+    
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -99,24 +107,40 @@ fun HomeScreen(
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    StatItem(label = "거리", value = "- km")
-                    StatItem(label = "시간", value = "- 분")
-                    StatItem(label = "페이스", value = "-'--\"")
+                if (latestRecord != null) {
+                    val distanceKm = latestRecord.totalDistance / 1000.0
+                    val timeMinutes = latestRecord.totalTime / 1000 / 60
+                    val paceMin = latestRecord.averagePace / 60
+                    val paceSec = latestRecord.averagePace % 60
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        StatItem(label = "거리", value = String.format("%.2f km", distanceKm))
+                        StatItem(label = "시간", value = "${timeMinutes}분")
+                        StatItem(label = "페이스", value = String.format("%d'%02d\"", paceMin, paceSec))
+                    }
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        StatItem(label = "거리", value = "- km")
+                        StatItem(label = "시간", value = "- 분")
+                        StatItem(label = "페이스", value = "-'--\"")
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(
+                        text = "아직 기록이 없어요",
+                        style = BreezeTheme.typography.bodyMedium,
+                        color = BreezeTheme.colors.textTertiary,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
                 }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Text(
-                    text = "아직 기록이 없어요",
-                    style = BreezeTheme.typography.bodyMedium,
-                    color = BreezeTheme.colors.textTertiary,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Center
-                )
             }
         }
 
@@ -141,9 +165,9 @@ fun HomeScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    StatItem(label = "총 거리", value = "0 km")
-                    StatItem(label = "총 시간", value = "0 분")
-                    StatItem(label = "러닝 횟수", value = "0 회")
+                    StatItem(label = "총 거리", value = String.format("%.1f km", weeklyDistance))
+                    StatItem(label = "총 시간", value = "${weeklyTime}분")
+                    StatItem(label = "러닝 횟수", value = "${weeklyCount}회")
                 }
             }
         }

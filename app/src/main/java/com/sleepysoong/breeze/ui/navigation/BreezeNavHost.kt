@@ -15,10 +15,12 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
@@ -35,6 +37,8 @@ import com.sleepysoong.breeze.ui.result.RunningResultScreen
 import com.sleepysoong.breeze.ui.running.RunningScreen
 import com.sleepysoong.breeze.ui.settings.SettingsScreen
 import com.sleepysoong.breeze.ui.theme.BreezeTheme
+import com.sleepysoong.breeze.ui.viewmodel.RunningViewModel
+import com.sleepysoong.breeze.ui.viewmodel.SaveResult
 
 object Routes {
     const val PACE_DIAL = "pace_dial"
@@ -82,10 +86,12 @@ val bottomNavItems = listOf(
 
 @Composable
 fun BreezeNavHost(
-    navController: NavHostController = rememberNavController()
+    navController: NavHostController = rememberNavController(),
+    viewModel: RunningViewModel = hiltViewModel()
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+    val saveResult by viewModel.saveResult.collectAsState()
     
     // 하단 네비게이션 바를 숨길 화면들
     val hideBottomBarRoutes = listOf(Routes.PACE_DIAL, Routes.RUNNING, Routes.RESULT)
@@ -105,14 +111,26 @@ fun BreezeNavHost(
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(BottomNavItem.Home.route) {
+                val latestRecord by viewModel.latestRecord.collectAsState()
+                val weeklyRecords by viewModel.weeklyRecords.collectAsState()
+                
                 HomeScreen(
+                    latestRecord = latestRecord,
+                    weeklyRecords = weeklyRecords,
                     onStartRunning = {
                         navController.navigate(Routes.PACE_DIAL)
                     }
                 )
             }
             composable(BottomNavItem.History.route) {
-                HistoryScreen()
+                val allRecords by viewModel.allRecords.collectAsState()
+                
+                HistoryScreen(
+                    records = allRecords,
+                    onDeleteRecord = { record ->
+                        viewModel.deleteRecord(record)
+                    }
+                )
             }
             composable(BottomNavItem.Settings.route) {
                 SettingsScreen()
@@ -164,16 +182,28 @@ fun BreezeNavHost(
                 val averagePace = backStackEntry.arguments?.getInt("averagePace") ?: 0
                 val targetPace = backStackEntry.arguments?.getInt("targetPace") ?: 390
                 
+                // 저장 결과 처리
+                LaunchedEffect(saveResult) {
+                    if (saveResult is SaveResult.Success) {
+                        viewModel.resetSaveResult()
+                        navController.navigate(BottomNavItem.Home.route) {
+                            popUpTo(BottomNavItem.Home.route) { inclusive = true }
+                        }
+                    }
+                }
+                
                 RunningResultScreen(
                     distanceMeters = distance,
                     elapsedTimeMs = time,
                     averagePaceSeconds = averagePace,
                     targetPaceSeconds = targetPace,
                     onSave = {
-                        // TODO: Room DB에 저장
-                        navController.navigate(BottomNavItem.Home.route) {
-                            popUpTo(BottomNavItem.Home.route) { inclusive = true }
-                        }
+                        viewModel.saveRunningRecord(
+                            distanceMeters = distance,
+                            elapsedTimeMs = time,
+                            targetPaceSeconds = targetPace,
+                            averagePaceSeconds = averagePace
+                        )
                     },
                     onDiscard = {
                         navController.navigate(BottomNavItem.Home.route) {
