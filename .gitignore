@@ -11,3 +11,7 @@ local.properties
 *.apk
 *.aab
 **/build/
+
+# Keystore (보안상 저장소에 포함하지 않음)
+*.jks
+*.keystore

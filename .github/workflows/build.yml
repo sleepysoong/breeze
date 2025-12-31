@@ -63,12 +63,21 @@ jobs:
         sed -i 's/versionCode = ${{ steps.get_version.outputs.current_code }}/versionCode = ${{ steps.bump_version.outputs.new_code }}/' app/build.gradle.kts
         sed -i 's/versionName = "${{ steps.get_version.outputs.current_version }}"/versionName = "${{ steps.bump_version.outputs.new_version }}"/' app/build.gradle.kts
 
-    - name: Build Debug APK
-      run: ./gradlew assembleDebug
+    - name: Decode keystore
+      run: |
+        mkdir -p keystore
+        echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > keystore/breeze-release.jks
+      
+    - name: Build Release APK
+      env:
+        KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+      run: ./gradlew assembleRelease
 
     - name: Rename APK
       run: |
-        mv app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/breeze-v${{ steps.bump_version.outputs.new_version }}.apk
+        mv app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/breeze-v${{ steps.bump_version.outputs.new_version }}.apk
 
     - name: Commit version bump
       run: |
@@ -88,7 +97,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: breeze-v${{ steps.bump_version.outputs.new_version }}
-        path: app/build/outputs/apk/debug/breeze-v${{ steps.bump_version.outputs.new_version }}.apk
+        path: app/build/outputs/apk/release/breeze-v${{ steps.bump_version.outputs.new_version }}.apk
 
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
@@ -106,6 +115,6 @@ jobs:
           
           ### 변경사항
           최신 main 브랜치 기준 빌드
-        files: app/build/outputs/apk/debug/breeze-v${{ steps.bump_version.outputs.new_version }}.apk
+        files: app/build/outputs/apk/release/breeze-v${{ steps.bump_version.outputs.new_version }}.apk
         draft: false
         prerelease: false
