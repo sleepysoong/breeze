@@ -29,7 +29,9 @@ import com.sleepysoong.breeze.ui.components.GlassCard
 import com.sleepysoong.breeze.ui.theme.BreezeTheme
 
 @Composable
-fun HomeScreen() {
+fun HomeScreen(
+    onStartRunning: () -> Unit = {}
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -61,7 +63,7 @@ fun HomeScreen() {
                 .size(160.dp)
                 .clip(CircleShape)
                 .background(BreezeTheme.colors.primary)
-                .clickable { /* TODO: Navigate to pace selection */ },
+                .clickable { onStartRunning() },
             contentAlignment = Alignment.Center
         ) {
             Icon(

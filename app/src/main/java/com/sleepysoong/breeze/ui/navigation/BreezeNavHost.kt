@@ -22,14 +22,25 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.sleepysoong.breeze.ui.history.HistoryScreen
 import com.sleepysoong.breeze.ui.home.HomeScreen
+import com.sleepysoong.breeze.ui.pace.PaceDialScreen
+import com.sleepysoong.breeze.ui.running.RunningScreen
 import com.sleepysoong.breeze.ui.settings.SettingsScreen
 import com.sleepysoong.breeze.ui.theme.BreezeTheme
+
+object Routes {
+    const val PACE_DIAL = "pace_dial"
+    const val RUNNING = "running/{paceSeconds}"
+    
+    fun running(paceSeconds: Int) = "running/$paceSeconds"
+}
 
 sealed class BottomNavItem(
     val route: String,
@@ -69,10 +80,19 @@ val bottomNavItems = listOf(
 fun BreezeNavHost(
     navController: NavHostController = rememberNavController()
 ) {
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+    
+    // 하단 네비게이션 바를 숨길 화면들
+    val hideBottomBarRoutes = listOf(Routes.PACE_DIAL, Routes.RUNNING)
+    val shouldShowBottomBar = hideBottomBarRoutes.none { currentRoute?.startsWith(it.split("/").first()) == true }
+    
     Scaffold(
         containerColor = BreezeTheme.colors.background,
         bottomBar = {
-            BreezeBottomNavigation(navController = navController)
+            if (shouldShowBottomBar) {
+                BreezeBottomNavigation(navController = navController)
+            }
         }
     ) { innerPadding ->
         NavHost(
@@ -81,13 +101,51 @@ fun BreezeNavHost(
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(BottomNavItem.Home.route) {
-                HomeScreen()
+                HomeScreen(
+                    onStartRunning = {
+                        navController.navigate(Routes.PACE_DIAL)
+                    }
+                )
             }
             composable(BottomNavItem.History.route) {
                 HistoryScreen()
             }
             composable(BottomNavItem.Settings.route) {
                 SettingsScreen()
+            }
+            composable(Routes.PACE_DIAL) {
+                PaceDialScreen(
+                    onDismiss = {
+                        navController.popBackStack()
+                    },
+                    onStartRunning = { paceSeconds ->
+                        navController.navigate(Routes.running(paceSeconds)) {
+                            popUpTo(Routes.PACE_DIAL) { inclusive = true }
+                        }
+                    }
+                )
+            }
+            composable(
+                route = Routes.RUNNING,
+                arguments = listOf(
+                    navArgument("paceSeconds") { type = NavType.IntType }
+                )
+            ) { backStackEntry ->
+                val paceSeconds = backStackEntry.arguments?.getInt("paceSeconds") ?: 390
+                RunningScreen(
+                    targetPaceSeconds = paceSeconds,
+                    onFinish = { distance, time, averagePace ->
+                        // TODO: 러닝 완료 화면으로 이동
+                        navController.navigate(BottomNavItem.Home.route) {
+                            popUpTo(BottomNavItem.Home.route) { inclusive = true }
+                        }
+                    },
+                    onStop = {
+                        navController.navigate(BottomNavItem.Home.route) {
+                            popUpTo(BottomNavItem.Home.route) { inclusive = true }
+                        }
+                    }
+                )
             }
         }
     }
