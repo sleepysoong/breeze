@@ -1,5 +1,14 @@
 package com.sleepysoong.breeze.ui.running
 
+import android.Manifest
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.content.ServiceConnection
+import android.os.Build
+import android.os.IBinder
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -15,7 +24,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -23,11 +31,10 @@ import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableDoubleStateOf
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -35,12 +42,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.sleepysoong.breeze.service.MetronomeManager
+import com.sleepysoong.breeze.service.RunningService
+import com.sleepysoong.breeze.service.RunningState
 import com.sleepysoong.breeze.ui.components.GlassCard
 import com.sleepysoong.breeze.ui.theme.BreezeTheme
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 
 @Composable
 fun RunningScreen(
@@ -48,25 +59,77 @@ fun RunningScreen(
     onFinish: (distance: Double, time: Long, averagePace: Int) -> Unit,
     onStop: () -> Unit
 ) {
-    var isPaused by remember { mutableStateOf(false) }
-    var elapsedTimeMs by remember { mutableLongStateOf(0L) }
-    var distanceMeters by remember { mutableDoubleStateOf(0.0) }
-    var currentPaceSeconds by remember { mutableIntStateOf(0) }
-    var currentBpm by remember { mutableIntStateOf(calculateInitialBpm(targetPaceSeconds)) }
+    val context = LocalContext.current
+    var runningService by remember { mutableStateOf<RunningService?>(null) }
+    var isBound by remember { mutableStateOf(false) }
+    var hasLocationPermission by remember { mutableStateOf(false) }
     
-    // 타이머 효과
-    LaunchedEffect(isPaused) {
-        while (!isPaused) {
-            delay(1000L)
-            elapsedTimeMs += 1000L
+    val runningState by (runningService?.runningState ?: MutableStateFlow(RunningState())).collectAsState()
+    
+    // 권한 요청 런처
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        hasLocationPermission = permissions.values.all { it }
+        if (hasLocationPermission) {
+            RunningService.startService(context, targetPaceSeconds)
         }
     }
+    
+    // 서비스 연결
+    val serviceConnection = remember {
+        object : ServiceConnection {
+            override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+                val binder = service as? RunningService.RunningBinder
+                runningService = binder?.getService()
+                isBound = true
+            }
+            
+            override fun onServiceDisconnected(name: ComponentName?) {
+                runningService = null
+                isBound = false
+            }
+        }
+    }
+    
+    // 권한 요청 및 서비스 시작
+    LaunchedEffect(Unit) {
+        val permissions = mutableListOf(
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        )
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        
+        permissionLauncher.launch(permissions.toTypedArray())
+        
+        // 서비스 바인딩
+        val intent = Intent(context, RunningService::class.java)
+        context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
+    }
+    
+    DisposableEffect(Unit) {
+        onDispose {
+            if (isBound) {
+                context.unbindService(serviceConnection)
+            }
+        }
+    }
+    
+    val elapsedTimeMs = runningState.elapsedTimeMs
+    val distanceMeters = runningState.distanceMeters
+    val currentPaceSeconds = runningState.currentPaceSeconds
+    val isPaused = runningState.isPaused
+    val currentBpm = runningState.currentBpm.takeIf { it > 0 } 
+        ?: MetronomeManager.calculateBpm(targetPaceSeconds)
     
     val elapsedMinutes = (elapsedTimeMs / 1000 / 60).toInt()
     val elapsedSeconds = (elapsedTimeMs / 1000 % 60).toInt()
     
     val distanceKm = distanceMeters / 1000.0
-    val averagePaceSeconds = if (distanceKm > 0) {
+    val averagePaceSeconds = if (distanceKm > 0.01) {
         ((elapsedTimeMs / 1000.0) / distanceKm).toInt()
     } else {
         0
@@ -226,6 +289,7 @@ fun RunningScreen(
                     contentDescription = "종료",
                     isPrimary = false,
                     onClick = {
+                        RunningService.stopService(context)
                         onFinish(distanceMeters, elapsedTimeMs, averagePaceSeconds)
                     }
                 )
@@ -237,7 +301,13 @@ fun RunningScreen(
                     icon = if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
                     contentDescription = if (isPaused) "재개" else "일시정지",
                     isPrimary = true,
-                    onClick = { isPaused = !isPaused }
+                    onClick = {
+                        if (isPaused) {
+                            RunningService.resumeService(context)
+                        } else {
+                            RunningService.pauseService(context)
+                        }
+                    }
                 )
             }
             
@@ -305,16 +375,4 @@ private fun RunningControlButton(
             tint = BreezeTheme.colors.textPrimary
         )
     }
-}
-
-/**
- * 초기 BPM 계산 (첫 번째 러닝용)
- * BPM = (1000m / 보폭) / 목표 페이스(분)
- * 보폭 초기값: 0.8m
- */
-private fun calculateInitialBpm(targetPaceSeconds: Int): Int {
-    val strideLength = 0.8 // meters
-    val stepsPerKm = 1000.0 / strideLength
-    val paceMinutes = targetPaceSeconds / 60.0
-    return (stepsPerKm / paceMinutes).toInt()
 }
