@@ -31,6 +31,7 @@ import androidx.navigation.navArgument
 import com.sleepysoong.breeze.ui.history.HistoryScreen
 import com.sleepysoong.breeze.ui.home.HomeScreen
 import com.sleepysoong.breeze.ui.pace.PaceDialScreen
+import com.sleepysoong.breeze.ui.result.RunningResultScreen
 import com.sleepysoong.breeze.ui.running.RunningScreen
 import com.sleepysoong.breeze.ui.settings.SettingsScreen
 import com.sleepysoong.breeze.ui.theme.BreezeTheme
@@ -38,8 +39,11 @@ import com.sleepysoong.breeze.ui.theme.BreezeTheme
 object Routes {
     const val PACE_DIAL = "pace_dial"
     const val RUNNING = "running/{paceSeconds}"
+    const val RESULT = "result/{distance}/{time}/{averagePace}/{targetPace}"
     
     fun running(paceSeconds: Int) = "running/$paceSeconds"
+    fun result(distance: Double, time: Long, averagePace: Int, targetPace: Int) = 
+        "result/${distance.toFloat()}/$time/$averagePace/$targetPace"
 }
 
 sealed class BottomNavItem(
@@ -84,7 +88,7 @@ fun BreezeNavHost(
     val currentRoute = navBackStackEntry?.destination?.route
     
     // 하단 네비게이션 바를 숨길 화면들
-    val hideBottomBarRoutes = listOf(Routes.PACE_DIAL, Routes.RUNNING)
+    val hideBottomBarRoutes = listOf(Routes.PACE_DIAL, Routes.RUNNING, Routes.RESULT)
     val shouldShowBottomBar = hideBottomBarRoutes.none { currentRoute?.startsWith(it.split("/").first()) == true }
     
     Scaffold(
@@ -135,12 +139,43 @@ fun BreezeNavHost(
                 RunningScreen(
                     targetPaceSeconds = paceSeconds,
                     onFinish = { distance, time, averagePace ->
-                        // TODO: 러닝 완료 화면으로 이동
+                        navController.navigate(Routes.result(distance, time, averagePace, paceSeconds)) {
+                            popUpTo(BottomNavItem.Home.route)
+                        }
+                    },
+                    onStop = {
+                        navController.navigate(BottomNavItem.Home.route) {
+                            popUpTo(BottomNavItem.Home.route) { inclusive = true }
+                        }
+                    }
+                )
+            }
+            composable(
+                route = Routes.RESULT,
+                arguments = listOf(
+                    navArgument("distance") { type = NavType.FloatType },
+                    navArgument("time") { type = NavType.LongType },
+                    navArgument("averagePace") { type = NavType.IntType },
+                    navArgument("targetPace") { type = NavType.IntType }
+                )
+            ) { backStackEntry ->
+                val distance = backStackEntry.arguments?.getFloat("distance")?.toDouble() ?: 0.0
+                val time = backStackEntry.arguments?.getLong("time") ?: 0L
+                val averagePace = backStackEntry.arguments?.getInt("averagePace") ?: 0
+                val targetPace = backStackEntry.arguments?.getInt("targetPace") ?: 390
+                
+                RunningResultScreen(
+                    distanceMeters = distance,
+                    elapsedTimeMs = time,
+                    averagePaceSeconds = averagePace,
+                    targetPaceSeconds = targetPace,
+                    onSave = {
+                        // TODO: Room DB에 저장
                         navController.navigate(BottomNavItem.Home.route) {
                             popUpTo(BottomNavItem.Home.route) { inclusive = true }
                         }
                     },
-                    onStop = {
+                    onDiscard = {
                         navController.navigate(BottomNavItem.Home.route) {
                             popUpTo(BottomNavItem.Home.route) { inclusive = true }
                         }
