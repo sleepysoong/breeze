@@ -22,7 +22,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.sleepysoong.breeze.ui.components.GlassButton
 import com.sleepysoong.breeze.ui.components.GlassCard
 import com.sleepysoong.breeze.ui.theme.BreezeTheme
 
@@ -47,16 +46,17 @@ fun RunningResultScreen(
     val paceDeviation = averagePaceSeconds - targetPaceSeconds
     val isGoalAchieved = kotlin.math.abs(paceDeviation) <= 30 // 30초 이내 오차
     
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxSize()
             .background(BreezeTheme.colors.background)
     ) {
+        // 스크롤 영역
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(20.dp)
-                .verticalScroll(rememberScrollState()),
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(modifier = Modifier.height(40.dp))
@@ -86,7 +86,7 @@ fun RunningResultScreen(
             GlassCard(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(200.dp)
+                    .height(180.dp)
             ) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -111,14 +111,14 @@ fun RunningResultScreen(
                 }
             }
             
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(20.dp))
             
             // 주요 통계
             GlassCard(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Column(
-                    modifier = Modifier.padding(20.dp)
+                    modifier = Modifier.padding(16.dp)
                 ) {
                     // 거리 (대형)
                     Column(
@@ -132,7 +132,7 @@ fun RunningResultScreen(
                         )
                         Text(
                             text = String.format("%.2f", distanceKm),
-                            style = BreezeTheme.typography.displayLarge.copy(fontSize = 56.sp),
+                            style = BreezeTheme.typography.displayLarge.copy(fontSize = 48.sp),
                             color = BreezeTheme.colors.textPrimary
                         )
                         Text(
@@ -142,7 +142,7 @@ fun RunningResultScreen(
                         )
                     }
                     
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
                     
                     // 시간, 페이스, 칼로리
                     Row(
@@ -164,13 +164,13 @@ fun RunningResultScreen(
                         )
                         ResultStatItem(
                             label = "칼로리",
-                            value = "$calories kcal"
+                            value = "$calories"
                         )
                     }
                 }
             }
             
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             
             // 목표 비교 카드
             GlassCard(
@@ -179,7 +179,7 @@ fun RunningResultScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(20.dp),
+                        .padding(16.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -220,55 +220,49 @@ fun RunningResultScreen(
                 }
             }
             
-            Spacer(modifier = Modifier.weight(1f))
-            
-            // 버튼 영역
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+            Spacer(modifier = Modifier.height(20.dp))
+        }
+        
+        // 버튼 영역 (고정)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // 저장 버튼
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(BreezeTheme.colors.primary)
+                    .clickable { onSave() },
+                contentAlignment = Alignment.Center
             ) {
-                // 저장 버튼
-                GlassButton(
-                    onClick = onSave,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp)
-                ) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "기록 저장",
-                            style = BreezeTheme.typography.titleMedium,
-                            color = BreezeTheme.colors.textPrimary
-                        )
-                    }
-                }
-                
-                // 삭제 버튼
-                GlassCard(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(BreezeTheme.colors.cardBackground)
-                            .clickable { onDiscard() },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "저장하지 않음",
-                            style = BreezeTheme.typography.titleMedium,
-                            color = BreezeTheme.colors.textSecondary
-                        )
-                    }
-                }
+                Text(
+                    text = "기록 저장",
+                    style = BreezeTheme.typography.titleMedium,
+                    color = BreezeTheme.colors.textPrimary
+                )
             }
             
-            Spacer(modifier = Modifier.height(32.dp))
+            // 삭제 버튼
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(BreezeTheme.colors.cardBackground)
+                    .clickable { onDiscard() },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "저장하지 않음",
+                    style = BreezeTheme.typography.titleMedium,
+                    color = BreezeTheme.colors.textSecondary
+                )
+            }
         }
     }
 }
