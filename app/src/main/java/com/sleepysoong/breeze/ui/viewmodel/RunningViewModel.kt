@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -20,6 +21,10 @@ class RunningViewModel @Inject constructor(
     
     val allRecords: StateFlow<List<RunningRecordEntity>> = repository.getAllRecords()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    
+    val totalRecords: StateFlow<Int> = repository.getAllRecords()
+        .map { it.size }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
     
     val latestRecord: StateFlow<RunningRecordEntity?> = repository.getLatestRecord()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)

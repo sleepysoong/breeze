@@ -1,22 +1,58 @@
 package com.sleepysoong.breeze.ui.settings
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.sleepysoong.breeze.ui.components.GlassCard
 import com.sleepysoong.breeze.ui.theme.BreezeTheme
+import com.sleepysoong.breeze.ui.viewmodel.RunningViewModel
 
 @Composable
-fun SettingsScreen() {
+fun SettingsScreen(
+    viewModel: RunningViewModel = hiltViewModel()
+) {
+    val totalRecords by viewModel.totalRecords.collectAsState()
+    
+    var showApiKeyDialog by remember { mutableStateOf(false) }
+    var showVolumeDialog by remember { mutableStateOf(false) }
+    var showUnitDialog by remember { mutableStateOf(false) }
+    var showResetDialog by remember { mutableStateOf(false) }
+    
+    var apiKey by remember { mutableStateOf("") }
+    var volume by remember { mutableFloatStateOf(1f) }
+    var useKilometers by remember { mutableStateOf(true) }
+    
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -35,7 +71,8 @@ fun SettingsScreen() {
 
         // 카카오 지도 API 키 설정
         GlassCard(
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            onClick = { showApiKeyDialog = true }
         ) {
             Column(
                 modifier = Modifier.padding(20.dp)
@@ -47,7 +84,7 @@ fun SettingsScreen() {
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "설정되지 않음",
+                    text = if (apiKey.isEmpty()) "설정되지 않음" else "설정됨",
                     style = BreezeTheme.typography.bodyMedium,
                     color = BreezeTheme.colors.textSecondary
                 )
@@ -58,7 +95,8 @@ fun SettingsScreen() {
 
         // 메트로놈 볼륨 설정
         GlassCard(
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            onClick = { showVolumeDialog = true }
         ) {
             Column(
                 modifier = Modifier.padding(20.dp)
@@ -70,7 +108,7 @@ fun SettingsScreen() {
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "100%",
+                    text = "${(volume * 100).toInt()}%",
                     style = BreezeTheme.typography.bodyMedium,
                     color = BreezeTheme.colors.textSecondary
                 )
@@ -81,7 +119,8 @@ fun SettingsScreen() {
 
         // 거리 단위 설정
         GlassCard(
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            onClick = { showUnitDialog = true }
         ) {
             Column(
                 modifier = Modifier.padding(20.dp)
@@ -93,7 +132,7 @@ fun SettingsScreen() {
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "킬로미터 (km)",
+                    text = if (useKilometers) "킬로미터 (km)" else "마일 (mi)",
                     style = BreezeTheme.typography.bodyMedium,
                     color = BreezeTheme.colors.textSecondary
                 )
@@ -104,7 +143,8 @@ fun SettingsScreen() {
 
         // 데이터 초기화
         GlassCard(
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            onClick = { showResetDialog = true }
         ) {
             Column(
                 modifier = Modifier.padding(20.dp)
@@ -116,7 +156,7 @@ fun SettingsScreen() {
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "모든 러닝 기록과 설정을 초기화해요",
+                    text = "총 ${totalRecords}개의 러닝 기록이 있어요",
                     style = BreezeTheme.typography.bodyMedium,
                     color = BreezeTheme.colors.textSecondary
                 )
@@ -132,6 +172,219 @@ fun SettingsScreen() {
             color = BreezeTheme.colors.textTertiary
         )
 
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(100.dp))
+    }
+    
+    // API 키 다이얼로그
+    if (showApiKeyDialog) {
+        SettingsDialog(
+            title = "카카오 지도 API 키",
+            onDismiss = { showApiKeyDialog = false },
+            onConfirm = { showApiKeyDialog = false }
+        ) {
+            var tempApiKey by remember { mutableStateOf(apiKey) }
+            Column {
+                Text(
+                    text = "카카오 개발자 사이트에서 발급받은 API 키를 입력하세요",
+                    style = BreezeTheme.typography.bodySmall,
+                    color = BreezeTheme.colors.textSecondary
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                TextField(
+                    value = tempApiKey,
+                    onValueChange = { 
+                        tempApiKey = it
+                        apiKey = it
+                    },
+                    placeholder = { 
+                        Text(
+                            "API 키 입력",
+                            color = BreezeTheme.colors.textTertiary
+                        ) 
+                    },
+                    colors = TextFieldDefaults.colors(
+                        focusedTextColor = BreezeTheme.colors.textPrimary,
+                        unfocusedTextColor = BreezeTheme.colors.textPrimary,
+                        focusedContainerColor = BreezeTheme.colors.surface,
+                        unfocusedContainerColor = BreezeTheme.colors.surface,
+                        cursorColor = BreezeTheme.colors.primary,
+                        focusedIndicatorColor = BreezeTheme.colors.primary,
+                        unfocusedIndicatorColor = BreezeTheme.colors.cardBorder
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+            }
+        }
+    }
+    
+    // 볼륨 다이얼로그
+    if (showVolumeDialog) {
+        SettingsDialog(
+            title = "메트로놈 볼륨",
+            onDismiss = { showVolumeDialog = false },
+            onConfirm = { showVolumeDialog = false }
+        ) {
+            var tempVolume by remember { mutableFloatStateOf(volume) }
+            Column {
+                Text(
+                    text = "${(tempVolume * 100).toInt()}%",
+                    style = BreezeTheme.typography.headlineMedium,
+                    color = BreezeTheme.colors.textPrimary
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Slider(
+                    value = tempVolume,
+                    onValueChange = { 
+                        tempVolume = it
+                        volume = it
+                    },
+                    valueRange = 0f..1f,
+                    colors = SliderDefaults.colors(
+                        thumbColor = BreezeTheme.colors.primary,
+                        activeTrackColor = BreezeTheme.colors.primary,
+                        inactiveTrackColor = BreezeTheme.colors.cardBorder
+                    )
+                )
+            }
+        }
+    }
+    
+    // 거리 단위 다이얼로그
+    if (showUnitDialog) {
+        SettingsDialog(
+            title = "거리 단위",
+            onDismiss = { showUnitDialog = false },
+            onConfirm = { showUnitDialog = false }
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                UnitOption(
+                    text = "킬로미터 (km)",
+                    selected = useKilometers,
+                    onClick = { useKilometers = true }
+                )
+                UnitOption(
+                    text = "마일 (mi)",
+                    selected = !useKilometers,
+                    onClick = { useKilometers = false }
+                )
+            }
+        }
+    }
+    
+    // 데이터 초기화 확인 다이얼로그
+    if (showResetDialog) {
+        SettingsDialog(
+            title = "데이터 초기화",
+            onDismiss = { showResetDialog = false },
+            onConfirm = { 
+                viewModel.deleteAllRecords()
+                showResetDialog = false 
+            },
+            confirmText = "초기화",
+            isDestructive = true
+        ) {
+            Text(
+                text = "모든 러닝 기록이 삭제돼요. 이 작업은 되돌릴 수 없어요.",
+                style = BreezeTheme.typography.bodyMedium,
+                color = BreezeTheme.colors.textSecondary
+            )
+        }
+    }
+}
+
+@Composable
+private fun SettingsDialog(
+    title: String,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+    confirmText: String = "확인",
+    isDestructive: Boolean = false,
+    content: @Composable () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = BreezeTheme.colors.surface,
+        title = {
+            Text(
+                text = title,
+                style = BreezeTheme.typography.titleLarge,
+                color = BreezeTheme.colors.textPrimary
+            )
+        },
+        text = { content() },
+        confirmButton = {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(
+                        if (isDestructive) BreezeTheme.colors.error
+                        else BreezeTheme.colors.primary
+                    )
+                    .clickable { onConfirm() }
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                Text(
+                    text = confirmText,
+                    style = BreezeTheme.typography.labelLarge,
+                    color = Color.White
+                )
+            }
+        },
+        dismissButton = {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { onDismiss() }
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                Text(
+                    text = "취소",
+                    style = BreezeTheme.typography.labelLarge,
+                    color = BreezeTheme.colors.textSecondary
+                )
+            }
+        }
+    )
+}
+
+@Composable
+private fun UnitOption(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(
+                if (selected) BreezeTheme.colors.primary.copy(alpha = 0.2f)
+                else Color.Transparent
+            )
+            .clickable { onClick() }
+            .padding(16.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(20.dp)
+                    .height(20.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(
+                        if (selected) BreezeTheme.colors.primary
+                        else BreezeTheme.colors.cardBorder
+                    )
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = text,
+                style = BreezeTheme.typography.bodyLarge,
+                color = if (selected) BreezeTheme.colors.textPrimary 
+                       else BreezeTheme.colors.textSecondary
+            )
+        }
     }
 }

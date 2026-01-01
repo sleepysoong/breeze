@@ -2,6 +2,7 @@ package com.sleepysoong.breeze.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.padding
@@ -17,6 +18,7 @@ import com.sleepysoong.breeze.ui.theme.BreezeTheme
 @Composable
 fun GlassCard(
     modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
     cornerRadius: Dp = 16.dp,
     backgroundColor: Color = BreezeTheme.colors.cardBackground,
     borderColor: Color = BreezeTheme.colors.cardBorder,
@@ -30,6 +32,10 @@ fun GlassCard(
                 width = 1.dp,
                 color = borderColor,
                 shape = RoundedCornerShape(cornerRadius)
+            )
+            .then(
+                if (onClick != null) Modifier.clickable { onClick() }
+                else Modifier
             )
     ) {
         content()
