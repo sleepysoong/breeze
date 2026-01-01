@@ -65,15 +65,12 @@ jobs:
 
     - name: Decode keystore
       run: |
-        mkdir -p keystore
-        echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > keystore/breeze-release.jks
+        base64 -d keystore/breeze-release.b64 > keystore/breeze-release.jks
       
     - name: Build Release APK
       env:
         KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-        KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-        KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-      run: ./gradlew assembleRelease
+      run: ./gradlew assembleRelease -PKEYSTORE_PASSWORD=$KEYSTORE_PASSWORD
 
     - name: Rename APK
       run: |

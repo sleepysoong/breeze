@@ -12,6 +12,6 @@ local.properties
 *.aab
 **/build/
 
-# Keystore (보안상 저장소에 포함하지 않음)
+# Keystore (jks 파일은 저장소에 포함하지 않음, b64만 포함)
 *.jks
 *.keystore
