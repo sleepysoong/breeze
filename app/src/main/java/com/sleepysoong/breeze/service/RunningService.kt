@@ -7,11 +7,14 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.graphics.Color
+import android.graphics.drawable.Icon
 import android.location.Location
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
 import android.os.Looper
+import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
@@ -120,6 +123,71 @@ class RunningService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
+            createLiveUpdateNotification(pendingIntent)
+        } else {
+            createLegacyNotification(pendingIntent)
+        }
+    }
+    
+    @RequiresApi(Build.VERSION_CODES.BAKLAVA)
+    private fun createLiveUpdateNotification(pendingIntent: PendingIntent): Notification {
+        val elapsedSeconds = if (startTimeMs > 0) {
+            ((System.currentTimeMillis() - startTimeMs - totalPausedTimeMs) / 1000).toInt()
+        } else 0
+        
+        val minutes = elapsedSeconds / 60
+        val seconds = elapsedSeconds % 60
+        val distanceKm = totalDistanceMeters / 1000.0
+        val currentPace = if (distanceKm > 0.01) {
+            ((elapsedSeconds.toDouble()) / distanceKm).toInt()
+        } else 0
+        val paceMin = currentPace / 60
+        val paceSec = currentPace % 60
+        
+        val targetDistanceKm = 5.0
+        val progress = ((distanceKm / targetDistanceKm) * 400).toInt().coerceIn(0, 400)
+        
+        val paceColor = when {
+            currentPace == 0 -> Color.GRAY
+            currentPace <= targetPaceSeconds -> Color.GREEN
+            currentPace <= targetPaceSeconds + 30 -> Color.YELLOW
+            else -> Color.RED
+        }
+        
+        val segments = listOf(
+            Notification.ProgressStyle.Segment(100).setColor(if (progress >= 100) paceColor else Color.DKGRAY),
+            Notification.ProgressStyle.Segment(100).setColor(if (progress >= 200) paceColor else Color.DKGRAY),
+            Notification.ProgressStyle.Segment(100).setColor(if (progress >= 300) paceColor else Color.DKGRAY),
+            Notification.ProgressStyle.Segment(100).setColor(if (progress >= 400) paceColor else Color.DKGRAY)
+        )
+        
+        val progressStyle = Notification.ProgressStyle()
+            .setProgress(progress)
+            .setProgressSegments(segments)
+            .setProgressTrackerIcon(Icon.createWithResource(this, R.drawable.ic_launcher_foreground))
+            .setStyledByProgress(true)
+        
+        val title = if (isPaused) "러닝 일시정지" else "러닝 중"
+        val contentText = if (currentPace > 0) {
+            String.format("%.2f km  |  %d:%02d  |  %d'%02d\"/km", distanceKm, minutes, seconds, paceMin, paceSec)
+        } else {
+            String.format("%.2f km  |  %d:%02d", distanceKm, minutes, seconds)
+        }
+        
+        return Notification.Builder(this, CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setContentTitle(title)
+            .setContentText(contentText)
+            .setContentIntent(pendingIntent)
+            .setStyle(progressStyle)
+            .setOngoing(true)
+            .setCategory(Notification.CATEGORY_WORKOUT)
+            .setColor(paceColor)
+            .build()
+    }
+    
+    private fun createLegacyNotification(pendingIntent: PendingIntent): Notification {
         val elapsedSeconds = if (startTimeMs > 0) {
             ((System.currentTimeMillis() - startTimeMs - totalPausedTimeMs) / 1000).toInt()
         } else 0
