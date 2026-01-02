@@ -1,5 +1,6 @@
 package com.sleepysoong.breeze.ui.settings
 
+import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -32,16 +33,25 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.sleepysoong.breeze.ui.components.GlassCard
 import com.sleepysoong.breeze.ui.theme.BreezeTheme
 import com.sleepysoong.breeze.ui.viewmodel.RunningViewModel
 
+private const val PREFS_NAME = "breeze_settings"
+private const val KEY_KAKAO_API = "kakao_api_key"
+private const val KEY_VOLUME = "metronome_volume"
+private const val KEY_USE_KM = "use_kilometers"
+
 @Composable
 fun SettingsScreen(
     viewModel: RunningViewModel = hiltViewModel()
 ) {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
+    
     val totalRecords by viewModel.totalRecords.collectAsState()
     
     var showApiKeyDialog by remember { mutableStateOf(false) }
@@ -49,9 +59,9 @@ fun SettingsScreen(
     var showUnitDialog by remember { mutableStateOf(false) }
     var showResetDialog by remember { mutableStateOf(false) }
     
-    var apiKey by remember { mutableStateOf("") }
-    var volume by remember { mutableFloatStateOf(1f) }
-    var useKilometers by remember { mutableStateOf(true) }
+    var apiKey by remember { mutableStateOf(prefs.getString(KEY_KAKAO_API, "") ?: "") }
+    var volume by remember { mutableFloatStateOf(prefs.getFloat(KEY_VOLUME, 1f)) }
+    var useKilometers by remember { mutableStateOf(prefs.getBoolean(KEY_USE_KM, true)) }
     
     Column(
         modifier = Modifier
@@ -180,7 +190,10 @@ fun SettingsScreen(
         SettingsDialog(
             title = "카카오 지도 API 키",
             onDismiss = { showApiKeyDialog = false },
-            onConfirm = { showApiKeyDialog = false }
+            onConfirm = { 
+                prefs.edit().putString(KEY_KAKAO_API, apiKey).apply()
+                showApiKeyDialog = false 
+            }
         ) {
             var tempApiKey by remember { mutableStateOf(apiKey) }
             Column {
@@ -223,7 +236,10 @@ fun SettingsScreen(
         SettingsDialog(
             title = "메트로놈 볼륨",
             onDismiss = { showVolumeDialog = false },
-            onConfirm = { showVolumeDialog = false }
+            onConfirm = { 
+                prefs.edit().putFloat(KEY_VOLUME, volume).apply()
+                showVolumeDialog = false 
+            }
         ) {
             var tempVolume by remember { mutableFloatStateOf(volume) }
             Column {
@@ -255,7 +271,10 @@ fun SettingsScreen(
         SettingsDialog(
             title = "거리 단위",
             onDismiss = { showUnitDialog = false },
-            onConfirm = { showUnitDialog = false }
+            onConfirm = { 
+                prefs.edit().putBoolean(KEY_USE_KM, useKilometers).apply()
+                showUnitDialog = false 
+            }
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 UnitOption(
