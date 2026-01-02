@@ -19,8 +19,11 @@ import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
+import com.google.gson.Gson
 import com.sleepysoong.breeze.MainActivity
 import com.sleepysoong.breeze.R
+import com.sleepysoong.breeze.ml.PacePredictionModel
+import com.sleepysoong.breeze.ml.PaceSegment
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,6 +35,8 @@ class RunningService : Service() {
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var locationCallback: LocationCallback
     private var metronomeManager: MetronomeManager? = null
+    private var pacePredictionModel: PacePredictionModel? = null
+    private val gson = Gson()
     
     private val _runningState = MutableStateFlow(RunningState())
     val runningState: StateFlow<RunningState> = _runningState.asStateFlow()
@@ -39,14 +44,27 @@ class RunningService : Service() {
     private val _locationPoints = MutableStateFlow<List<LatLngPoint>>(emptyList())
     val locationPoints: StateFlow<List<LatLngPoint>> = _locationPoints.asStateFlow()
     
+    // 구간 페이스 기록
+    private val _paceSegments = MutableStateFlow<List<PaceSegment>>(emptyList())
+    val paceSegments: StateFlow<List<PaceSegment>> = _paceSegments.asStateFlow()
+    
     private var isRunning = false
     private var isPaused = false
     private var startTimeMs = 0L
-    private var pausedTimeMs = 0L
+    private var totalPausedTimeMs = 0L
+    private var pauseStartTimeMs = 0L
     private var lastLocation: Location? = null
     private var totalDistanceMeters = 0.0
     private var targetPaceSeconds = 390
     private var currentBpm = 0
+    
+    // 구간 페이스 추적
+    private var lastSegmentDistance = 0.0
+    private var lastSegmentTime = 0L
+    private var currentSegmentIndex = 0
+    
+    // BPM 업데이트 간격 (미터)
+    private val BPM_UPDATE_INTERVAL_METERS = 100.0
     
     inner class RunningBinder : Binder() {
         fun getService(): RunningService = this@RunningService
@@ -59,7 +77,8 @@ class RunningService : Service() {
     override fun onCreate() {
         super.onCreate()
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
-        metronomeManager = MetronomeManager(this)
+        pacePredictionModel = PacePredictionModel(this)
+        metronomeManager = MetronomeManager(this, pacePredictionModel)
         createNotificationChannel()
         setupLocationCallback()
     }
@@ -102,7 +121,7 @@ class RunningService : Service() {
         )
         
         val elapsedSeconds = if (startTimeMs > 0) {
-            ((System.currentTimeMillis() - startTimeMs - pausedTimeMs) / 1000).toInt()
+            ((System.currentTimeMillis() - startTimeMs - totalPausedTimeMs) / 1000).toInt()
         } else 0
         
         val minutes = elapsedSeconds / 60
@@ -144,6 +163,14 @@ class RunningService : Service() {
             val distance = last.distanceTo(location)
             if (distance > 1.0 && distance < 100.0) {
                 totalDistanceMeters += distance
+                
+                // 스마트 BPM 업데이트 (100m마다)
+                if (totalDistanceMeters - lastSegmentDistance >= BPM_UPDATE_INTERVAL_METERS) {
+                    updateSmartBpm()
+                }
+                
+                // 구간 페이스 기록 (1km마다)
+                checkAndRecordSegment()
             }
         }
         lastLocation = location
@@ -151,9 +178,60 @@ class RunningService : Service() {
         updateRunningState()
     }
     
-    private fun updateRunningState() {
+    /**
+     * 스마트 BPM 업데이트
+     */
+    private fun updateSmartBpm() {
         val elapsedMs = if (startTimeMs > 0) {
-            System.currentTimeMillis() - startTimeMs - pausedTimeMs
+            System.currentTimeMillis() - startTimeMs - totalPausedTimeMs
+        } else 0L
+        
+        val newBpm = metronomeManager?.updateSmartBpm(totalDistanceMeters, elapsedMs)
+        if (newBpm != null && newBpm > 0) {
+            currentBpm = newBpm
+        }
+    }
+    
+    /**
+     * 1km 구간 페이스 기록
+     */
+    private fun checkAndRecordSegment() {
+        val currentKm = (totalDistanceMeters / 1000.0).toInt()
+        val lastKm = (lastSegmentDistance / 1000.0).toInt()
+        
+        if (currentKm > lastKm && currentKm > currentSegmentIndex) {
+            val currentTimeMs = System.currentTimeMillis() - startTimeMs - totalPausedTimeMs
+            val segmentTimeMs = currentTimeMs - lastSegmentTime
+            val segmentDistanceM = totalDistanceMeters - lastSegmentDistance
+            
+            // 구간 페이스 계산 (초/km)
+            val segmentPace = if (segmentDistanceM > 0) {
+                ((segmentTimeMs / 1000.0) / (segmentDistanceM / 1000.0)).toInt()
+            } else 0
+            
+            if (segmentPace > 0) {
+                val segment = PaceSegment(
+                    segmentIndex = currentSegmentIndex,
+                    pace = segmentPace,
+                    startTime = lastSegmentTime,
+                    endTime = currentTimeMs
+                )
+                _paceSegments.value = _paceSegments.value + segment
+                currentSegmentIndex++
+            }
+            
+            lastSegmentDistance = totalDistanceMeters
+            lastSegmentTime = currentTimeMs
+        }
+    }
+    
+    private fun updateRunningState() {
+        val currentPausedTime = if (isPaused && pauseStartTimeMs > 0) {
+            System.currentTimeMillis() - pauseStartTimeMs
+        } else 0L
+        
+        val elapsedMs = if (startTimeMs > 0) {
+            System.currentTimeMillis() - startTimeMs - totalPausedTimeMs - currentPausedTime
         } else 0L
         
         val distanceKm = totalDistanceMeters / 1000.0
@@ -168,7 +246,8 @@ class RunningService : Service() {
             elapsedTimeMs = elapsedMs,
             currentPaceSeconds = currentPace,
             targetPaceSeconds = targetPaceSeconds,
-            currentBpm = currentBpm
+            currentBpm = currentBpm,
+            isSmartMode = metronomeManager?.isSmartModeEnabled() ?: false
         )
         
         // 알림 업데이트
@@ -183,13 +262,37 @@ class RunningService : Service() {
         isRunning = true
         isPaused = false
         startTimeMs = System.currentTimeMillis()
-        pausedTimeMs = 0L
+        totalPausedTimeMs = 0L
+        pauseStartTimeMs = 0L
         totalDistanceMeters = 0.0
         lastLocation = null
         _locationPoints.value = emptyList()
+        _paceSegments.value = emptyList()
         
-        // BPM 계산 및 메트로놈 시작
-        currentBpm = MetronomeManager.calculateBpm(targetPaceSeconds)
+        // 구간 추적 초기화
+        lastSegmentDistance = 0.0
+        lastSegmentTime = 0L
+        currentSegmentIndex = 0
+        
+        // 스마트 BPM 설정
+        metronomeManager?.configureSmartMode(
+            targetPace = targetPaceSeconds,
+            expectedDistance = 5000.0, // 기본 5km 예상
+            enableSmart = true
+        )
+        
+        // 초기 BPM 계산 및 메트로놈 시작
+        currentBpm = if (pacePredictionModel?.hasTrainedModel() == true) {
+            pacePredictionModel!!.calculateSmartBpm(
+                targetPaceSeconds = targetPaceSeconds,
+                currentDistanceMeters = 0.0
+            )
+        } else {
+            MetronomeManager.calculateBpm(
+                targetPaceSeconds, 
+                pacePredictionModel?.getStrideLength() ?: 0.8
+            )
+        }
         metronomeManager?.start(currentBpm)
         
         startForeground(NOTIFICATION_ID, createNotification())
@@ -214,7 +317,7 @@ class RunningService : Service() {
     private fun pauseRunning() {
         if (isRunning && !isPaused) {
             isPaused = true
-            pausedTimeMs = System.currentTimeMillis()
+            pauseStartTimeMs = System.currentTimeMillis()
             metronomeManager?.stop()
             updateRunningState()
         }
@@ -222,8 +325,8 @@ class RunningService : Service() {
     
     private fun resumeRunning() {
         if (isRunning && isPaused) {
-            val pauseDuration = System.currentTimeMillis() - pausedTimeMs
-            pausedTimeMs = pauseDuration
+            totalPausedTimeMs += System.currentTimeMillis() - pauseStartTimeMs
+            pauseStartTimeMs = 0L
             isPaused = false
             metronomeManager?.start(currentBpm)
             updateRunningState()
@@ -241,6 +344,9 @@ class RunningService : Service() {
     
     fun getCurrentState(): RunningState = _runningState.value
     fun getRoutePoints(): List<LatLngPoint> = _locationPoints.value
+    fun getRoutePointsJson(): String = gson.toJson(_locationPoints.value)
+    fun getPaceSegmentsJson(): String = gson.toJson(_paceSegments.value)
+    fun getPacePredictionModel(): PacePredictionModel? = pacePredictionModel
     
     override fun onDestroy() {
         super.onDestroy()
@@ -307,7 +413,8 @@ data class RunningState(
     val elapsedTimeMs: Long = 0L,
     val currentPaceSeconds: Int = 0,
     val targetPaceSeconds: Int = 390,
-    val currentBpm: Int = 0
+    val currentBpm: Int = 0,
+    val isSmartMode: Boolean = false
 )
 
 data class LatLngPoint(

@@ -46,16 +46,32 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import com.kakao.vectormap.KakaoMap
+import com.kakao.vectormap.KakaoMapReadyCallback
+import com.kakao.vectormap.LatLng
+import com.kakao.vectormap.MapLifeCycleCallback
+import com.kakao.vectormap.MapView
+import com.kakao.vectormap.camera.CameraUpdateFactory
+import com.kakao.vectormap.route.RouteLineLayer
+import com.kakao.vectormap.route.RouteLineOptions
+import com.kakao.vectormap.route.RouteLineSegment
+import com.kakao.vectormap.route.RouteLineStyle
+import com.kakao.vectormap.route.RouteLineStyles
+import com.kakao.vectormap.route.RouteLineStylesSet
+import com.sleepysoong.breeze.service.LatLngPoint
 import com.sleepysoong.breeze.service.MetronomeManager
 import com.sleepysoong.breeze.service.RunningService
 import com.sleepysoong.breeze.service.RunningState
 import com.sleepysoong.breeze.ui.components.GlassCard
 import com.sleepysoong.breeze.ui.theme.BreezeTheme
+import com.sleepysoong.breeze.ui.viewmodel.RunningViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 
 @Composable
 fun RunningScreen(
     targetPaceSeconds: Int,
+    viewModel: RunningViewModel,
     onFinish: (distance: Double, time: Long, averagePace: Int) -> Unit,
     onStop: () -> Unit
 ) {
@@ -65,6 +81,7 @@ fun RunningScreen(
     var hasLocationPermission by remember { mutableStateOf(false) }
     
     val runningState by (runningService?.runningState ?: MutableStateFlow(RunningState())).collectAsState()
+    val locationPoints by (runningService?.locationPoints ?: MutableStateFlow(emptyList())).collectAsState()
     
     // 권한 요청 런처
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -124,6 +141,7 @@ fun RunningScreen(
     val isPaused = runningState.isPaused
     val currentBpm = runningState.currentBpm.takeIf { it > 0 } 
         ?: MetronomeManager.calculateBpm(targetPaceSeconds)
+    val isSmartMode = runningState.isSmartMode
     
     val elapsedMinutes = (elapsedTimeMs / 1000 / 60).toInt()
     val elapsedSeconds = (elapsedTimeMs / 1000 % 60).toInt()
@@ -145,33 +163,15 @@ fun RunningScreen(
                 .fillMaxSize()
                 .padding(20.dp)
         ) {
-            // 상단: 지도 영역 (플레이스홀더)
             GlassCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(200.dp)
             ) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "지도 영역",
-                            style = BreezeTheme.typography.bodyLarge,
-                            color = BreezeTheme.colors.textTertiary
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "카카오 지도 API 키를 설정에서 입력해주세요",
-                            style = BreezeTheme.typography.bodySmall,
-                            color = BreezeTheme.colors.textTertiary,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
+                LiveRunningMapView(
+                    locationPoints = locationPoints,
+                    modifier = Modifier.fillMaxSize()
+                )
             }
             
             Spacer(modifier = Modifier.height(24.dp))
@@ -261,9 +261,9 @@ fun RunningScreen(
                             horizontalAlignment = Alignment.End
                         ) {
                             Text(
-                                text = "메트로놈",
+                                text = if (isSmartMode) "스마트 BPM" else "메트로놈",
                                 style = BreezeTheme.typography.bodySmall,
-                                color = BreezeTheme.colors.textSecondary
+                                color = if (isSmartMode) BreezeTheme.colors.primary else BreezeTheme.colors.textSecondary
                             )
                             Text(
                                 text = "$currentBpm BPM",
@@ -289,6 +289,13 @@ fun RunningScreen(
                     contentDescription = "종료",
                     isPrimary = false,
                     onClick = {
+                        // 러닝 데이터를 ViewModel에 저장
+                        runningService?.let { service ->
+                            viewModel.setPendingRunningData(
+                                paceSegmentsJson = service.getPaceSegmentsJson(),
+                                routePointsJson = service.getRoutePointsJson()
+                            )
+                        }
                         RunningService.stopService(context)
                         onFinish(distanceMeters, elapsedTimeMs, averagePaceSeconds)
                     }
@@ -375,4 +382,106 @@ private fun RunningControlButton(
             tint = BreezeTheme.colors.textPrimary
         )
     }
+}
+
+@Composable
+private fun LiveRunningMapView(
+    locationPoints: List<LatLngPoint>,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    var mapView by remember { mutableStateOf<MapView?>(null) }
+    var kakaoMap by remember { mutableStateOf<KakaoMap?>(null) }
+    var currentRouteLine by remember { mutableStateOf<com.kakao.vectormap.route.RouteLine?>(null) }
+    
+    val apiKey = remember {
+        context.getSharedPreferences("breeze_settings", Context.MODE_PRIVATE)
+            .getString("kakao_api_key", null)
+    }
+    
+    if (apiKey.isNullOrEmpty()) {
+        Box(
+            modifier = modifier,
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "카카오 지도 API 키가 필요해요",
+                    style = BreezeTheme.typography.bodyLarge,
+                    color = BreezeTheme.colors.textTertiary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "설정에서 API 키를 입력해주세요",
+                    style = BreezeTheme.typography.bodySmall,
+                    color = BreezeTheme.colors.textTertiary,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+        return
+    }
+    
+    LaunchedEffect(locationPoints, kakaoMap) {
+        val map = kakaoMap ?: return@LaunchedEffect
+        if (locationPoints.size < 2) return@LaunchedEffect
+        
+        try {
+            val routeLineLayer: RouteLineLayer = map.routeLineManager?.layer ?: return@LaunchedEffect
+            
+            currentRouteLine?.let { routeLineLayer.remove(it) }
+            
+            val latLngs = locationPoints.map { LatLng.from(it.latitude, it.longitude) }
+            
+            val styles = RouteLineStylesSet.from(
+                RouteLineStyles.from(
+                    RouteLineStyle.from(8f, 0xFFFF3B30.toInt())
+                )
+            )
+            
+            val segment = RouteLineSegment.from(latLngs)
+                .setStyles(styles.getStyles(0))
+            
+            val options = RouteLineOptions.from(segment)
+                .setStylesSet(styles)
+            
+            currentRouteLine = routeLineLayer.addRouteLine(options)
+            
+            val lastPoint = locationPoints.last()
+            val cameraUpdate = CameraUpdateFactory.newCenterPosition(
+                LatLng.from(lastPoint.latitude, lastPoint.longitude),
+                16
+            )
+            map.moveCamera(cameraUpdate)
+        } catch (e: Exception) {
+        }
+    }
+    
+    DisposableEffect(Unit) {
+        onDispose {
+            mapView?.finish()
+        }
+    }
+    
+    AndroidView(
+        factory = { ctx ->
+            MapView(ctx).apply {
+                mapView = this
+                start(
+                    object : MapLifeCycleCallback() {
+                        override fun onMapDestroy() {}
+                        override fun onMapError(error: Exception?) {}
+                    },
+                    object : KakaoMapReadyCallback() {
+                        override fun onMapReady(map: KakaoMap) {
+                            kakaoMap = map
+                        }
+                    }
+                )
+            }
+        },
+        modifier = modifier
+    )
 }

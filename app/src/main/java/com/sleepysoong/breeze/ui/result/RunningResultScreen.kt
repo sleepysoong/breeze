@@ -1,6 +1,7 @@
 package com.sleepysoong.breeze.ui.result
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,17 +12,26 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.BlurredEdgeTreatment
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.sleepysoong.breeze.ui.components.GlassCard
 import com.sleepysoong.breeze.ui.theme.BreezeTheme
 
@@ -34,6 +44,8 @@ fun RunningResultScreen(
     onSave: () -> Unit,
     onDiscard: () -> Unit
 ) {
+    var showDiscardDialog by remember { mutableStateOf(false) }
+    
     val distanceKm = distanceMeters / 1000.0
     val elapsedMinutes = (elapsedTimeMs / 1000 / 60).toInt()
     val elapsedSeconds = (elapsedTimeMs / 1000 % 60).toInt()
@@ -45,6 +57,19 @@ fun RunningResultScreen(
     // 목표 달성 여부
     val paceDeviation = averagePaceSeconds - targetPaceSeconds
     val isGoalAchieved = kotlin.math.abs(paceDeviation) <= 30 // 30초 이내 오차
+    
+    // 저장하지 않음 확인 다이얼로그
+    if (showDiscardDialog) {
+        DiscardConfirmDialog(
+            onConfirm = {
+                showDiscardDialog = false
+                onDiscard()
+            },
+            onDismiss = {
+                showDiscardDialog = false
+            }
+        )
+    }
     
     Column(
         modifier = Modifier
@@ -230,7 +255,7 @@ fun RunningResultScreen(
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // 저장 버튼
+            // 돌아가기 버튼 (저장 후 홈으로)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -241,20 +266,20 @@ fun RunningResultScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "기록 저장",
+                    text = "돌아가기",
                     style = BreezeTheme.typography.titleMedium,
                     color = BreezeTheme.colors.textPrimary
                 )
             }
             
-            // 삭제 버튼
+            // 저장하지 않음 버튼
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp)
                     .clip(RoundedCornerShape(16.dp))
                     .background(BreezeTheme.colors.cardBackground)
-                    .clickable { onDiscard() },
+                    .clickable { showDiscardDialog = true },
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -262,6 +287,111 @@ fun RunningResultScreen(
                     style = BreezeTheme.typography.titleMedium,
                     color = BreezeTheme.colors.textSecondary
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DiscardConfirmDialog(
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            dismissOnBackPress = true,
+            dismissOnClickOutside = true,
+            usePlatformDefaultWidth = false
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(BreezeTheme.colors.background.copy(alpha = 0.7f))
+                .clickable(onClick = onDismiss),
+            contentAlignment = Alignment.Center
+        ) {
+            // 글래스모피즘 다이얼로그
+            Box(
+                modifier = Modifier
+                    .padding(horizontal = 32.dp)
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(BreezeTheme.colors.cardBackground)
+                    .border(
+                        width = 1.dp,
+                        color = BreezeTheme.colors.cardBorder,
+                        shape = RoundedCornerShape(20.dp)
+                    )
+                    .clickable(enabled = false) {} // 내부 클릭 방지
+            ) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "기록을 삭제할까요?",
+                        style = BreezeTheme.typography.titleLarge,
+                        color = BreezeTheme.colors.textPrimary
+                    )
+                    
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    Text(
+                        text = "저장하지 않으면 이번 러닝 기록이\n완전히 사라져요",
+                        style = BreezeTheme.typography.bodyMedium,
+                        color = BreezeTheme.colors.textSecondary,
+                        textAlign = TextAlign.Center
+                    )
+                    
+                    Spacer(modifier = Modifier.height(24.dp))
+                    
+                    // 버튼들
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // 취소 버튼
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(BreezeTheme.colors.surface)
+                                .border(
+                                    width = 1.dp,
+                                    color = BreezeTheme.colors.cardBorder,
+                                    shape = RoundedCornerShape(12.dp)
+                                )
+                                .clickable { onDismiss() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "취소",
+                                style = BreezeTheme.typography.labelLarge,
+                                color = BreezeTheme.colors.textSecondary
+                            )
+                        }
+                        
+                        // 삭제 버튼
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(BreezeTheme.colors.primary)
+                                .clickable { onConfirm() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "삭제",
+                                style = BreezeTheme.typography.labelLarge,
+                                color = BreezeTheme.colors.textPrimary
+                            )
+                        }
+                    }
+                }
             }
         }
     }

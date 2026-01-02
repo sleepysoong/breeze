@@ -1,5 +1,6 @@
 package com.sleepysoong.breeze.ui.history
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,6 +27,7 @@ import java.util.Locale
 @Composable
 fun HistoryScreen(
     records: List<RunningRecordEntity> = emptyList(),
+    onRecordClick: (RunningRecordEntity) -> Unit = {},
     onDeleteRecord: (RunningRecordEntity) -> Unit = {}
 ) {
     Column(
@@ -69,7 +71,10 @@ fun HistoryScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(records) { record ->
-                    HistoryRecordCard(record = record)
+                    HistoryRecordCard(
+                        record = record,
+                        onClick = { onRecordClick(record) }
+                    )
                 }
                 item {
                     Spacer(modifier = Modifier.height(20.dp))
@@ -81,7 +86,8 @@ fun HistoryScreen(
 
 @Composable
 private fun HistoryRecordCard(
-    record: RunningRecordEntity
+    record: RunningRecordEntity,
+    onClick: () -> Unit
 ) {
     val dateFormat = SimpleDateFormat("M월 d일 (E)", Locale.KOREAN)
     val timeFormat = SimpleDateFormat("HH:mm", Locale.KOREAN)
@@ -96,7 +102,9 @@ private fun HistoryRecordCard(
     val paceSec = record.averagePace % 60
     
     GlassCard(
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
     ) {
         Column(
             modifier = Modifier.padding(16.dp)

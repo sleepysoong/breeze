@@ -30,6 +30,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.sleepysoong.breeze.ui.detail.RecordDetailScreen
 import com.sleepysoong.breeze.ui.history.HistoryScreen
 import com.sleepysoong.breeze.ui.home.HomeScreen
 import com.sleepysoong.breeze.ui.pace.PaceDialScreen
@@ -44,10 +45,12 @@ object Routes {
     const val PACE_DIAL = "pace_dial"
     const val RUNNING = "running/{paceSeconds}"
     const val RESULT = "result/{distance}/{time}/{averagePace}/{targetPace}"
+    const val RECORD_DETAIL = "record_detail/{recordId}"
     
     fun running(paceSeconds: Int) = "running/$paceSeconds"
     fun result(distance: Double, time: Long, averagePace: Int, targetPace: Int) = 
         "result/${distance.toFloat()}/$time/$averagePace/$targetPace"
+    fun recordDetail(recordId: Long) = "record_detail/$recordId"
 }
 
 sealed class BottomNavItem(
@@ -94,7 +97,7 @@ fun BreezeNavHost(
     val saveResult by viewModel.saveResult.collectAsState()
     
     // 하단 네비게이션 바를 숨길 화면들
-    val hideBottomBarRoutes = listOf(Routes.PACE_DIAL, Routes.RUNNING, Routes.RESULT)
+    val hideBottomBarRoutes = listOf(Routes.PACE_DIAL, Routes.RUNNING, Routes.RESULT, Routes.RECORD_DETAIL)
     val shouldShowBottomBar = hideBottomBarRoutes.none { currentRoute?.startsWith(it.split("/").first()) == true }
     
     Scaffold(
@@ -127,6 +130,9 @@ fun BreezeNavHost(
                 
                 HistoryScreen(
                     records = allRecords,
+                    onRecordClick = { record ->
+                        navController.navigate(Routes.recordDetail(record.id))
+                    },
                     onDeleteRecord = { record ->
                         viewModel.deleteRecord(record)
                     }
@@ -156,6 +162,7 @@ fun BreezeNavHost(
                 val paceSeconds = backStackEntry.arguments?.getInt("paceSeconds") ?: 390
                 RunningScreen(
                     targetPaceSeconds = paceSeconds,
+                    viewModel = viewModel,
                     onFinish = { distance, time, averagePace ->
                         navController.navigate(Routes.result(distance, time, averagePace, paceSeconds)) {
                             popUpTo(BottomNavItem.Home.route)
@@ -209,6 +216,23 @@ fun BreezeNavHost(
                         navController.navigate(BottomNavItem.Home.route) {
                             popUpTo(BottomNavItem.Home.route) { inclusive = true }
                         }
+                    }
+                )
+            }
+            composable(
+                route = Routes.RECORD_DETAIL,
+                arguments = listOf(
+                    navArgument("recordId") { type = NavType.LongType }
+                )
+            ) { backStackEntry ->
+                val recordId = backStackEntry.arguments?.getLong("recordId") ?: 0L
+                val allRecords by viewModel.allRecords.collectAsState()
+                val record = allRecords.find { it.id == recordId }
+                
+                RecordDetailScreen(
+                    record = record,
+                    onBack = {
+                        navController.popBackStack()
                     }
                 )
             }

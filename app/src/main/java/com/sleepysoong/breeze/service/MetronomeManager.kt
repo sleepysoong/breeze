@@ -5,6 +5,7 @@ import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioTrack
+import com.sleepysoong.breeze.ml.PacePredictionModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -16,11 +17,19 @@ import kotlin.math.PI
 import kotlin.math.exp
 import kotlin.math.sin
 
-class MetronomeManager(private val context: Context) {
+class MetronomeManager(
+    private val context: Context,
+    private val pacePredictionModel: PacePredictionModel? = null
+) {
     
     private var metronomeJob: Job? = null
     private var currentBpm: Int = 0
     private var volume: Float = 0.7f
+    
+    // 스마트 BPM 관련
+    private var targetPaceSeconds: Int = 390
+    private var expectedTotalDistanceMeters: Double = 5000.0
+    private var useSmartBpm: Boolean = false
     
     private val sampleRate = 44100
     private var tickSound: ShortArray? = null
@@ -70,6 +79,22 @@ class MetronomeManager(private val context: Context) {
         this.volume = volume.coerceIn(0f, 1f)
     }
     
+    /**
+     * 스마트 BPM 모드 설정
+     * @param targetPace 목표 페이스 (초/km)
+     * @param expectedDistance 예상 총 거리 (m)
+     * @param enableSmart 스마트 모드 활성화 여부 (학습된 모델이 있을 때만)
+     */
+    fun configureSmartMode(
+        targetPace: Int,
+        expectedDistance: Double = 5000.0,
+        enableSmart: Boolean = true
+    ) {
+        targetPaceSeconds = targetPace
+        expectedTotalDistanceMeters = expectedDistance
+        useSmartBpm = enableSmart && (pacePredictionModel?.hasTrainedModel() == true)
+    }
+    
     fun start(bpm: Int) {
         if (bpm <= 0) return
         
@@ -91,6 +116,42 @@ class MetronomeManager(private val context: Context) {
             start(bpm)
         }
     }
+    
+    /**
+     * 현재 진행 상황에 따라 스마트 BPM 업데이트
+     * @param currentDistanceMeters 현재 거리 (m)
+     * @param currentTimeMs 현재 경과 시간 (ms)
+     * @return 업데이트된 BPM
+     */
+    fun updateSmartBpm(currentDistanceMeters: Double, currentTimeMs: Long): Int {
+        val newBpm = if (useSmartBpm && pacePredictionModel != null) {
+            pacePredictionModel.calculateSmartBpm(
+                targetPaceSeconds = targetPaceSeconds,
+                currentDistanceMeters = currentDistanceMeters,
+                expectedTotalDistanceMeters = expectedTotalDistanceMeters,
+                currentTimeMs = currentTimeMs
+            )
+        } else {
+            calculateBpm(targetPaceSeconds, pacePredictionModel?.getStrideLength() ?: 0.8)
+        }
+        
+        // BPM이 변경되었으면 업데이트
+        if (newBpm != currentBpm && newBpm > 0) {
+            start(newBpm)
+        }
+        
+        return currentBpm
+    }
+    
+    /**
+     * 현재 BPM 반환
+     */
+    fun getCurrentBpm(): Int = currentBpm
+    
+    /**
+     * 스마트 모드 활성화 여부
+     */
+    fun isSmartModeEnabled(): Boolean = useSmartBpm
     
     fun stop() {
         metronomeJob?.cancel()
@@ -154,7 +215,7 @@ class MetronomeManager(private val context: Context) {
             if (targetPaceSeconds <= 0) return 0
             val stepsPerKm = 1000.0 / strideLength
             val paceMinutes = targetPaceSeconds / 60.0
-            return (stepsPerKm / paceMinutes).toInt()
+            return (stepsPerKm / paceMinutes).toInt().coerceIn(100, 220)
         }
     }
 }
