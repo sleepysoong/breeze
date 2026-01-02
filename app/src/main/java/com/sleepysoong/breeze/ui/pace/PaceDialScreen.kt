@@ -1,5 +1,6 @@
 package com.sleepysoong.breeze.ui.pace
 
+import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -33,10 +34,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sleepysoong.breeze.ui.components.GlassCard
+import com.sleepysoong.breeze.ui.components.rememberHapticFeedback
 import com.sleepysoong.breeze.ui.theme.BreezeTheme
 import kotlin.math.roundToInt
 
@@ -48,6 +51,8 @@ fun PaceDialScreen(
 ) {
     var paceSeconds by remember { mutableIntStateOf(initialPaceSeconds) }
     var dragAccumulator by remember { mutableFloatStateOf(0f) }
+    val haptic = rememberHapticFeedback()
+    val view = LocalView.current
     
     val minutes = paceSeconds / 60
     val seconds = paceSeconds % 60
@@ -68,7 +73,7 @@ fun PaceDialScreen(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End
             ) {
-                IconButton(onClick = onDismiss) {
+                IconButton(onClick = { haptic(); onDismiss() }) {
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "닫기",
@@ -114,12 +119,14 @@ fun PaceDialScreen(
                                     val newPace = paceSeconds + 10
                                     if (newPace <= 1800) {
                                         paceSeconds = newPace
+                                        view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                                     }
                                     dragAccumulator = 0f
                                 } else if (dragAccumulator < -threshold) {
                                     val newPace = paceSeconds - 10
                                     if (newPace >= 60) {
                                         paceSeconds = newPace
+                                        view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
                                     }
                                     dragAccumulator = 0f
                                 }
@@ -255,6 +262,7 @@ fun PaceDialScreen(
                                     if (event.changes.any { it.pressed }) {
                                         // 터치 시작
                                     } else if (event.changes.any { !it.pressed }) {
+                                        haptic()
                                         onStartRunning(paceSeconds)
                                     }
                                 }

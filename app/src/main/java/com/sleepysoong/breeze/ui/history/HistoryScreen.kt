@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.sleepysoong.breeze.data.local.entity.RunningRecordEntity
 import com.sleepysoong.breeze.ui.components.GlassCard
+import com.sleepysoong.breeze.ui.components.rememberHapticFeedback
 import com.sleepysoong.breeze.ui.theme.BreezeTheme
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -30,6 +31,8 @@ fun HistoryScreen(
     onRecordClick: (RunningRecordEntity) -> Unit = {},
     onDeleteRecord: (RunningRecordEntity) -> Unit = {}
 ) {
+    val haptic = rememberHapticFeedback()
+    
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -73,7 +76,7 @@ fun HistoryScreen(
                 items(records) { record ->
                     HistoryRecordCard(
                         record = record,
-                        onClick = { onRecordClick(record) }
+                        onClick = { haptic(); onRecordClick(record) }
                     )
                 }
                 item {

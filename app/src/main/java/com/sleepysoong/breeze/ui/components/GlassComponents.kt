@@ -1,5 +1,7 @@
 package com.sleepysoong.breeze.ui.components
 
+import android.view.HapticFeedbackConstants
+import android.view.View
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -11,9 +13,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.sleepysoong.breeze.ui.theme.BreezeTheme
+
+@Composable
+fun rememberHapticFeedback(): () -> Unit {
+    val view = LocalView.current
+    return { view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY) }
+}
 
 @Composable
 fun GlassCard(

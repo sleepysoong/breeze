@@ -1,6 +1,7 @@
 package com.sleepysoong.breeze.ui.settings
 
 import android.content.Context
+import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -34,9 +35,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.sleepysoong.breeze.ui.components.GlassCard
+import com.sleepysoong.breeze.ui.components.rememberHapticFeedback
 import com.sleepysoong.breeze.ui.theme.BreezeTheme
 import com.sleepysoong.breeze.ui.viewmodel.RunningViewModel
 
@@ -51,6 +54,7 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
+    val haptic = rememberHapticFeedback()
     
     val totalRecords by viewModel.totalRecords.collectAsState()
     
@@ -82,7 +86,7 @@ fun SettingsScreen(
         // 카카오 지도 API 키 설정
         GlassCard(
             modifier = Modifier.fillMaxWidth(),
-            onClick = { showApiKeyDialog = true }
+            onClick = { haptic(); showApiKeyDialog = true }
         ) {
             Column(
                 modifier = Modifier.padding(20.dp)
@@ -106,7 +110,7 @@ fun SettingsScreen(
         // 메트로놈 볼륨 설정
         GlassCard(
             modifier = Modifier.fillMaxWidth(),
-            onClick = { showVolumeDialog = true }
+            onClick = { haptic(); showVolumeDialog = true }
         ) {
             Column(
                 modifier = Modifier.padding(20.dp)
@@ -130,7 +134,7 @@ fun SettingsScreen(
         // 거리 단위 설정
         GlassCard(
             modifier = Modifier.fillMaxWidth(),
-            onClick = { showUnitDialog = true }
+            onClick = { haptic(); showUnitDialog = true }
         ) {
             Column(
                 modifier = Modifier.padding(20.dp)
@@ -154,7 +158,7 @@ fun SettingsScreen(
         // 데이터 초기화
         GlassCard(
             modifier = Modifier.fillMaxWidth(),
-            onClick = { showResetDialog = true }
+            onClick = { haptic(); showResetDialog = true }
         ) {
             Column(
                 modifier = Modifier.padding(20.dp)

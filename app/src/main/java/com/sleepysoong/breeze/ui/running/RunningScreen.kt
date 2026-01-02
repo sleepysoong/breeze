@@ -64,6 +64,7 @@ import com.sleepysoong.breeze.service.MetronomeManager
 import com.sleepysoong.breeze.service.RunningService
 import com.sleepysoong.breeze.service.RunningState
 import com.sleepysoong.breeze.ui.components.GlassCard
+import com.sleepysoong.breeze.ui.components.rememberHapticFeedback
 import com.sleepysoong.breeze.ui.theme.BreezeTheme
 import com.sleepysoong.breeze.ui.viewmodel.RunningViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -76,6 +77,7 @@ fun RunningScreen(
     onStop: () -> Unit
 ) {
     val context = LocalContext.current
+    val haptic = rememberHapticFeedback()
     var runningService by remember { mutableStateOf<RunningService?>(null) }
     var isBound by remember { mutableStateOf(false) }
     var hasLocationPermission by remember { mutableStateOf(false) }
@@ -289,6 +291,7 @@ fun RunningScreen(
                     contentDescription = "종료",
                     isPrimary = false,
                     onClick = {
+                        haptic()
                         // 러닝 데이터를 ViewModel에 저장
                         runningService?.let { service ->
                             viewModel.setPendingRunningData(
@@ -309,6 +312,7 @@ fun RunningScreen(
                     contentDescription = if (isPaused) "재개" else "일시정지",
                     isPrimary = true,
                     onClick = {
+                        haptic()
                         if (isPaused) {
                             RunningService.resumeService(context)
                         } else {

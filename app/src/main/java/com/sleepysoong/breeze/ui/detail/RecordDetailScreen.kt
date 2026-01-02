@@ -1,6 +1,7 @@
 package com.sleepysoong.breeze.ui.detail
 
 import android.content.Context
+import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -32,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -57,6 +59,7 @@ import com.sleepysoong.breeze.ml.PaceSegment
 import com.sleepysoong.breeze.service.LatLngPoint
 import com.sleepysoong.breeze.ui.components.GlassCard
 import com.sleepysoong.breeze.ui.components.PaceGraph
+import com.sleepysoong.breeze.ui.components.rememberHapticFeedback
 import com.sleepysoong.breeze.ui.theme.BreezeTheme
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -105,6 +108,7 @@ private fun RecordDetailContent(
     onDelete: (RunningRecordEntity) -> Unit
 ) {
     val context = LocalContext.current
+    val haptic = rememberHapticFeedback()
     var showDeleteDialog by remember { mutableStateOf(false) }
 
     val routePoints = remember(record) {
@@ -164,7 +168,7 @@ private fun RecordDetailContent(
                         .size(40.dp)
                         .clip(CircleShape)
                         .background(BreezeTheme.colors.cardBackground)
-                        .clickable { onBack() },
+                        .clickable { haptic(); onBack() },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -370,7 +374,7 @@ private fun RecordDetailContent(
                         .height(56.dp)
                         .clip(RoundedCornerShape(16.dp))
                         .background(BreezeTheme.colors.primary)
-                        .clickable { onBack() },
+                        .clickable { haptic(); onBack() },
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -386,7 +390,7 @@ private fun RecordDetailContent(
                         .height(56.dp)
                         .clip(RoundedCornerShape(16.dp))
                         .background(BreezeTheme.colors.cardBackground)
-                        .clickable { showDeleteDialog = true },
+                        .clickable { haptic(); showDeleteDialog = true },
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -405,6 +409,8 @@ private fun DeleteConfirmDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val haptic = rememberHapticFeedback()
+    
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(
@@ -469,7 +475,7 @@ private fun DeleteConfirmDialog(
                                     color = BreezeTheme.colors.cardBorder,
                                     shape = RoundedCornerShape(12.dp)
                                 )
-                                .clickable { onDismiss() },
+                                .clickable { haptic(); onDismiss() },
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
@@ -485,7 +491,7 @@ private fun DeleteConfirmDialog(
                                 .height(48.dp)
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(BreezeTheme.colors.error)
-                                .clickable { onConfirm() },
+                                .clickable { haptic(); onConfirm() },
                             contentAlignment = Alignment.Center
                         ) {
                             Text(

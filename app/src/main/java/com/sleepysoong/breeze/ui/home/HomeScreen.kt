@@ -27,6 +27,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.sleepysoong.breeze.data.local.entity.RunningRecordEntity
 import com.sleepysoong.breeze.ui.components.GlassCard
+import com.sleepysoong.breeze.ui.components.rememberHapticFeedback
 import com.sleepysoong.breeze.ui.theme.BreezeTheme
 
 @Composable
@@ -35,6 +36,8 @@ fun HomeScreen(
     weeklyRecords: List<RunningRecordEntity> = emptyList(),
     onStartRunning: () -> Unit = {}
 ) {
+    val haptic = rememberHapticFeedback()
+    
     // 주간 통계 계산
     val weeklyDistance = weeklyRecords.sumOf { it.totalDistance } / 1000.0
     val weeklyTime = weeklyRecords.sumOf { it.totalTime } / 1000 / 60
@@ -71,7 +74,7 @@ fun HomeScreen(
                 .size(160.dp)
                 .clip(CircleShape)
                 .background(BreezeTheme.colors.primary)
-                .clickable { onStartRunning() },
+                .clickable { haptic(); onStartRunning() },
             contentAlignment = Alignment.Center
         ) {
             Icon(
