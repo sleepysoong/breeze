@@ -127,14 +127,28 @@ class RunningService : Service() {
         val minutes = elapsedSeconds / 60
         val seconds = elapsedSeconds % 60
         val distanceKm = totalDistanceMeters / 1000.0
+        val currentPace = if (distanceKm > 0.01) {
+            ((elapsedSeconds.toDouble()) / distanceKm).toInt()
+        } else 0
+        val paceMin = currentPace / 60
+        val paceSec = currentPace % 60
+        
+        val title = if (isPaused) "러닝 일시정지" else "러닝 중"
+        val contentText = if (currentPace > 0) {
+            String.format("%.2f km  |  %d:%02d  |  %d'%02d\"/km", distanceKm, minutes, seconds, paceMin, paceSec)
+        } else {
+            String.format("%.2f km  |  %d:%02d", distanceKm, minutes, seconds)
+        }
         
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("러닝 중")
-            .setContentText(String.format("%.2f km  |  %d:%02d", distanceKm, minutes, seconds))
+            .setContentTitle(title)
+            .setContentText(contentText)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
             .setSilent(true)
+            .setCategory(NotificationCompat.CATEGORY_WORKOUT)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .build()
     }
     
