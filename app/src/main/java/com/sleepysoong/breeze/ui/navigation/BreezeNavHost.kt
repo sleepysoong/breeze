@@ -233,6 +233,9 @@ fun BreezeNavHost(
                     record = record,
                     onBack = {
                         navController.popBackStack()
+                    },
+                    onDelete = { recordToDelete ->
+                        viewModel.deleteRecord(recordToDelete)
                     }
                 )
             }
