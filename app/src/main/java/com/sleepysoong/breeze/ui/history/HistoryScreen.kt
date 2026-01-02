@@ -1,5 +1,9 @@
 package com.sleepysoong.breeze.ui.history
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -11,9 +15,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -21,6 +30,7 @@ import com.sleepysoong.breeze.data.local.entity.RunningRecordEntity
 import com.sleepysoong.breeze.ui.components.GlassCard
 import com.sleepysoong.breeze.ui.components.rememberHapticFeedback
 import com.sleepysoong.breeze.ui.theme.BreezeTheme
+import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -73,11 +83,26 @@ fun HistoryScreen(
             LazyColumn(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                items(records) { record ->
-                    HistoryRecordCard(
-                        record = record,
-                        onClick = { haptic(); onRecordClick(record) }
-                    )
+                itemsIndexed(records) { index, record ->
+                    var visible by remember { mutableStateOf(false) }
+                    LaunchedEffect(record.id) {
+                        delay(index * 50L)
+                        visible = true
+                    }
+                    
+                    AnimatedVisibility(
+                        visible = visible,
+                        enter = fadeIn(animationSpec = tween(300)) +
+                                slideInVertically(
+                                    animationSpec = tween(300),
+                                    initialOffsetY = { it / 4 }
+                                )
+                    ) {
+                        HistoryRecordCard(
+                            record = record,
+                            onClick = { haptic(); onRecordClick(record) }
+                        )
+                    }
                 }
                 item {
                     Spacer(modifier = Modifier.height(20.dp))

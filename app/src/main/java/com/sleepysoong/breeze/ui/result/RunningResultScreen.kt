@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.sleepysoong.breeze.ui.components.GlassCard
+import com.sleepysoong.breeze.ui.components.rememberHapticFeedback
 import com.sleepysoong.breeze.ui.theme.BreezeTheme
 
 @Composable
@@ -45,6 +46,7 @@ fun RunningResultScreen(
     onDiscard: () -> Unit
 ) {
     var showDiscardDialog by remember { mutableStateOf(false) }
+    val haptic = rememberHapticFeedback()
     
     val distanceKm = distanceMeters / 1000.0
     val elapsedMinutes = (elapsedTimeMs / 1000 / 60).toInt()
@@ -262,7 +264,7 @@ fun RunningResultScreen(
                     .height(56.dp)
                     .clip(RoundedCornerShape(16.dp))
                     .background(BreezeTheme.colors.primary)
-                    .clickable { onSave() },
+                    .clickable { haptic(); onSave() },
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -279,7 +281,7 @@ fun RunningResultScreen(
                     .height(56.dp)
                     .clip(RoundedCornerShape(16.dp))
                     .background(BreezeTheme.colors.cardBackground)
-                    .clickable { showDiscardDialog = true },
+                    .clickable { haptic(); showDiscardDialog = true },
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -297,6 +299,8 @@ private fun DiscardConfirmDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val haptic = rememberHapticFeedback()
+    
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(
@@ -364,7 +368,7 @@ private fun DiscardConfirmDialog(
                                     color = BreezeTheme.colors.cardBorder,
                                     shape = RoundedCornerShape(12.dp)
                                 )
-                                .clickable { onDismiss() },
+                                .clickable { haptic(); onDismiss() },
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
@@ -381,7 +385,7 @@ private fun DiscardConfirmDialog(
                                 .height(48.dp)
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(BreezeTheme.colors.primary)
-                                .clickable { onConfirm() },
+                                .clickable { haptic(); onConfirm() },
                             contentAlignment = Alignment.Center
                         ) {
                             Text(

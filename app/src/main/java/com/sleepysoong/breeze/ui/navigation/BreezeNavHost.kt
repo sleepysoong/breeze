@@ -1,5 +1,11 @@
 package com.sleepysoong.breeze.ui.navigation
 
+import android.view.HapticFeedbackConstants
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.History
@@ -19,6 +25,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -111,7 +118,29 @@ fun BreezeNavHost(
         NavHost(
             navController = navController,
             startDestination = BottomNavItem.Home.route,
-            modifier = Modifier.padding(innerPadding)
+            modifier = Modifier.padding(innerPadding),
+            enterTransition = {
+                fadeIn(animationSpec = tween(300, easing = FastOutSlowInEasing)) +
+                slideIntoContainer(
+                    towards = AnimatedContentTransitionScope.SlideDirection.Start,
+                    animationSpec = tween(300, easing = FastOutSlowInEasing),
+                    initialOffset = { it / 4 }
+                )
+            },
+            exitTransition = {
+                fadeOut(animationSpec = tween(300))
+            },
+            popEnterTransition = {
+                fadeIn(animationSpec = tween(300, easing = FastOutSlowInEasing)) +
+                slideIntoContainer(
+                    towards = AnimatedContentTransitionScope.SlideDirection.End,
+                    animationSpec = tween(300, easing = FastOutSlowInEasing),
+                    initialOffset = { it / 4 }
+                )
+            },
+            popExitTransition = {
+                fadeOut(animationSpec = tween(300))
+            }
         ) {
             composable(BottomNavItem.Home.route) {
                 val latestRecord by viewModel.latestRecord.collectAsState()
@@ -249,6 +278,7 @@ fun BreezeBottomNavigation(
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
+    val view = LocalView.current
 
     NavigationBar(
         containerColor = BreezeTheme.colors.surface,
@@ -260,6 +290,7 @@ fun BreezeBottomNavigation(
             NavigationBarItem(
                 selected = selected,
                 onClick = {
+                    view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
                     navController.navigate(item.route) {
                         popUpTo(navController.graph.findStartDestination().id) {
                             saveState = true

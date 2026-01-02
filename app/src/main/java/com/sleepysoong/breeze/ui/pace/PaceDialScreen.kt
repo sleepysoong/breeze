@@ -1,6 +1,8 @@
 package com.sleepysoong.breeze.ui.pace
 
 import android.view.HapticFeedbackConstants
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -23,14 +25,17 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
@@ -41,6 +46,7 @@ import androidx.compose.ui.unit.sp
 import com.sleepysoong.breeze.ui.components.GlassCard
 import com.sleepysoong.breeze.ui.components.rememberHapticFeedback
 import com.sleepysoong.breeze.ui.theme.BreezeTheme
+import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 
 @Composable
@@ -51,8 +57,22 @@ fun PaceDialScreen(
 ) {
     var paceSeconds by remember { mutableIntStateOf(initialPaceSeconds) }
     var dragAccumulator by remember { mutableFloatStateOf(0f) }
+    var isPulse by remember { mutableStateOf(false) }
     val haptic = rememberHapticFeedback()
     val view = LocalView.current
+    
+    val paceScale by animateFloatAsState(
+        targetValue = if (isPulse) 1.05f else 1f,
+        animationSpec = spring(dampingRatio = 0.5f, stiffness = 400f),
+        label = "paceScale"
+    )
+    
+    LaunchedEffect(isPulse) {
+        if (isPulse) {
+            delay(100)
+            isPulse = false
+        }
+    }
     
     val minutes = paceSeconds / 60
     val seconds = paceSeconds % 60
@@ -119,14 +139,22 @@ fun PaceDialScreen(
                                     val newPace = paceSeconds + 10
                                     if (newPace <= 1800) {
                                         paceSeconds = newPace
+                                        isPulse = true
                                         view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                                    } else {
+                                        // max 도달 시 강한 피드백
+                                        view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                                     }
                                     dragAccumulator = 0f
                                 } else if (dragAccumulator < -threshold) {
                                     val newPace = paceSeconds - 10
                                     if (newPace >= 60) {
                                         paceSeconds = newPace
+                                        isPulse = true
                                         view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                                    } else {
+                                        // min 도달 시 강한 피드백
+                                        view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                                     }
                                     dragAccumulator = 0f
                                 }
@@ -191,7 +219,8 @@ fun PaceDialScreen(
                         
                         // 현재 값 (크고 강조)
                         Row(
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.scale(paceScale)
                         ) {
                             Text(
                                 text = String.format("%d", minutes),
