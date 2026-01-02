@@ -14,6 +14,8 @@ import android.os.Binder
 import android.os.Build
 import android.os.IBinder
 import android.os.Looper
+import java.util.Timer
+import java.util.TimerTask
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import com.google.android.gms.location.FusedLocationProviderClient
@@ -40,6 +42,9 @@ class RunningService : Service() {
     private var metronomeManager: MetronomeManager? = null
     private var pacePredictionModel: PacePredictionModel? = null
     private val gson = Gson()
+    
+    // 1초 UI 업데이트 타이머
+    private var updateTimer: Timer? = null
     
     private val _runningState = MutableStateFlow(RunningState())
     val runningState: StateFlow<RunningState> = _runningState.asStateFlow()
@@ -377,6 +382,17 @@ class RunningService : Service() {
         }
         metronomeManager?.start(currentBpm)
         
+        // 1초마다 UI 업데이트 타이머 시작
+        updateTimer = Timer().apply {
+            scheduleAtFixedRate(object : TimerTask() {
+                override fun run() {
+                    if (isRunning && !isPaused) {
+                        updateRunningState()
+                    }
+                }
+            }, 0L, 1000L)
+        }
+        
         startForeground(NOTIFICATION_ID, createNotification())
         
         val locationRequest = LocationRequest.Builder(
@@ -418,6 +434,8 @@ class RunningService : Service() {
     private fun stopRunning() {
         isRunning = false
         isPaused = false
+        updateTimer?.cancel()
+        updateTimer = null
         metronomeManager?.stop()
         fusedLocationClient.removeLocationUpdates(locationCallback)
         stopForeground(STOP_FOREGROUND_REMOVE)
@@ -432,6 +450,8 @@ class RunningService : Service() {
     
     override fun onDestroy() {
         super.onDestroy()
+        updateTimer?.cancel()
+        updateTimer = null
         metronomeManager?.release()
         if (isRunning) {
             fusedLocationClient.removeLocationUpdates(locationCallback)
