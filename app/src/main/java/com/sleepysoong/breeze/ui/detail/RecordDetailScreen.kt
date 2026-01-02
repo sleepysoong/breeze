@@ -50,8 +50,10 @@ import com.kakao.vectormap.route.RouteLineStyle
 import com.kakao.vectormap.route.RouteLineStyles
 import com.kakao.vectormap.route.RouteLineStylesSet
 import com.sleepysoong.breeze.data.local.entity.RunningRecordEntity
+import com.sleepysoong.breeze.ml.PaceSegment
 import com.sleepysoong.breeze.service.LatLngPoint
 import com.sleepysoong.breeze.ui.components.GlassCard
+import com.sleepysoong.breeze.ui.components.PaceGraph
 import com.sleepysoong.breeze.ui.theme.BreezeTheme
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -80,6 +82,10 @@ fun RecordDetailScreen(
     
     val routePoints = remember(record) {
         parseRoutePoints(record.routePoints)
+    }
+    
+    val paceSegments = remember(record) {
+        parsePaceSegments(record.paceSegments)
     }
     
     val dateFormat = SimpleDateFormat("yyyy년 M월 d일 (E)", Locale.KOREAN)
@@ -300,6 +306,20 @@ fun RecordDetailScreen(
                 }
             }
             
+            if (paceSegments.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                GlassCard(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    PaceGraph(
+                        paceSegments = paceSegments,
+                        targetPace = record.targetPace,
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
+            }
+            
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
@@ -487,6 +507,16 @@ private fun parseRoutePoints(json: String): List<LatLngPoint> {
     return try {
         val gson = Gson()
         val type = object : TypeToken<List<LatLngPoint>>() {}.type
+        gson.fromJson(json, type) ?: emptyList()
+    } catch (e: Exception) {
+        emptyList()
+    }
+}
+
+private fun parsePaceSegments(json: String): List<PaceSegment> {
+    return try {
+        val gson = Gson()
+        val type = object : TypeToken<List<PaceSegment>>() {}.type
         gson.fromJson(json, type) ?: emptyList()
     } catch (e: Exception) {
         emptyList()
