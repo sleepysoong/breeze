@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.ServiceConnection
 import android.os.Build
 import android.os.IBinder
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -44,6 +45,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.android.gms.maps.CameraUpdateFactory
@@ -377,6 +379,35 @@ private fun LiveRunningMapView(
     locationPoints: List<LatLngPoint>,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("breeze_settings", Context.MODE_PRIVATE) }
+    val apiKey = remember { prefs.getString("google_maps_api_key", "") ?: "" }
+    
+    if (apiKey.isBlank()) {
+        Box(
+            modifier = modifier.background(BreezeTheme.colors.surface),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "경로 지도",
+                    style = BreezeTheme.typography.bodyLarge,
+                    color = BreezeTheme.colors.textTertiary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "설정에서 Google Maps API 키를\n입력하면 지도가 표시됩니다",
+                    style = BreezeTheme.typography.bodySmall,
+                    color = BreezeTheme.colors.textTertiary,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+        return
+    }
+    
     val latLngs = remember(locationPoints) {
         locationPoints.map { LatLng(it.latitude, it.longitude) }
     }
@@ -391,12 +422,16 @@ private fun LiveRunningMapView(
     LaunchedEffect(locationPoints) {
         if (locationPoints.isNotEmpty()) {
             val lastPoint = locationPoints.last()
-            cameraPositionState.animate(
-                CameraUpdateFactory.newLatLngZoom(
-                    LatLng(lastPoint.latitude, lastPoint.longitude),
-                    16f
+            try {
+                cameraPositionState.animate(
+                    CameraUpdateFactory.newLatLngZoom(
+                        LatLng(lastPoint.latitude, lastPoint.longitude),
+                        16f
+                    )
                 )
-            )
+            } catch (e: Exception) {
+                Log.e("LiveRunningMapView", "Camera animation failed", e)
+            }
         }
     }
 
