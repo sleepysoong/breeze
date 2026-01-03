@@ -129,7 +129,7 @@ fun RunningResultScreen(
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "카카오 지도 API 키 설정 후 표시됩니다",
+                            text = "Google Maps API 키 설정 후 표시됩니다",
                             style = BreezeTheme.typography.bodySmall,
                             color = BreezeTheme.colors.textTertiary,
                             textAlign = TextAlign.Center

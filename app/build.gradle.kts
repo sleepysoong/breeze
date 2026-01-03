@@ -18,9 +18,6 @@ android {
         versionName = "1.0.9"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        
-        // 카카오 지도 API 키 (앱 설정에서 사용자가 입력, 빌드 시에는 빈 값)
-        manifestPlaceholders["KAKAO_API_KEY"] = ""
     }
 
     signingConfigs {
@@ -100,6 +97,7 @@ dependencies {
     // Gson
     implementation(libs.gson)
 
-    // Kakao Maps
-    implementation(libs.kakao.maps)
+    // Google Maps
+    implementation(libs.maps.compose)
+    implementation(libs.play.services.maps)
 }

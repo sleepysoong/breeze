@@ -44,7 +44,7 @@ import com.sleepysoong.breeze.ui.theme.BreezeTheme
 import com.sleepysoong.breeze.ui.viewmodel.RunningViewModel
 
 private const val PREFS_NAME = "breeze_settings"
-private const val KEY_KAKAO_API = "kakao_api_key"
+private const val KEY_GOOGLE_MAPS_API = "google_maps_api_key"
 private const val KEY_VOLUME = "metronome_volume"
 private const val KEY_USE_KM = "use_kilometers"
 
@@ -63,7 +63,7 @@ fun SettingsScreen(
     var showUnitDialog by remember { mutableStateOf(false) }
     var showResetDialog by remember { mutableStateOf(false) }
     
-    var apiKey by remember { mutableStateOf(prefs.getString(KEY_KAKAO_API, "") ?: "") }
+    var apiKey by remember { mutableStateOf(prefs.getString(KEY_GOOGLE_MAPS_API, "") ?: "") }
     var volume by remember { mutableFloatStateOf(prefs.getFloat(KEY_VOLUME, 1f)) }
     var useKilometers by remember { mutableStateOf(prefs.getBoolean(KEY_USE_KM, true)) }
     
@@ -83,7 +83,7 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // 카카오 지도 API 키 설정
+        // Google Maps API 키 설정
         GlassCard(
             modifier = Modifier.fillMaxWidth(),
             onClick = { haptic(); showApiKeyDialog = true }
@@ -92,7 +92,7 @@ fun SettingsScreen(
                 modifier = Modifier.padding(20.dp)
             ) {
                 Text(
-                    text = "카카오 지도 API 키",
+                    text = "Google Maps API 키",
                     style = BreezeTheme.typography.titleMedium,
                     color = BreezeTheme.colors.textPrimary
                 )
@@ -192,17 +192,17 @@ fun SettingsScreen(
     // API 키 다이얼로그
     if (showApiKeyDialog) {
         SettingsDialog(
-            title = "카카오 지도 API 키",
+            title = "Google Maps API 키",
             onDismiss = { showApiKeyDialog = false },
             onConfirm = { 
-                prefs.edit().putString(KEY_KAKAO_API, apiKey).apply()
+                prefs.edit().putString(KEY_GOOGLE_MAPS_API, apiKey).apply()
                 showApiKeyDialog = false 
             }
         ) {
             var tempApiKey by remember { mutableStateOf(apiKey) }
             Column {
                 Text(
-                    text = "카카오 개발자 사이트에서 발급받은 API 키를 입력하세요",
+                    text = "Google Cloud Console에서 발급받은 API 키를 입력하세요",
                     style = BreezeTheme.typography.bodySmall,
                     color = BreezeTheme.colors.textSecondary
                 )

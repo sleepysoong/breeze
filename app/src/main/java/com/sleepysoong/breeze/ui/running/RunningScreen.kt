@@ -41,24 +41,20 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
-import com.kakao.vectormap.KakaoMap
-import com.kakao.vectormap.KakaoMapReadyCallback
-import com.kakao.vectormap.LatLng
-import com.kakao.vectormap.MapLifeCycleCallback
-import com.kakao.vectormap.MapView
-import com.kakao.vectormap.camera.CameraUpdateFactory
-import com.kakao.vectormap.route.RouteLineLayer
-import com.kakao.vectormap.route.RouteLineOptions
-import com.kakao.vectormap.route.RouteLineSegment
-import com.kakao.vectormap.route.RouteLineStyle
-import com.kakao.vectormap.route.RouteLineStyles
-import com.kakao.vectormap.route.RouteLineStylesSet
+import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLng
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.MapProperties
+import com.google.maps.android.compose.MapType
+import com.google.maps.android.compose.MapUiSettings
+import com.google.maps.android.compose.Polyline
+import com.google.maps.android.compose.rememberCameraPositionState
 import com.sleepysoong.breeze.service.LatLngPoint
 import com.sleepysoong.breeze.service.MetronomeManager
 import com.sleepysoong.breeze.service.RunningService
@@ -85,7 +81,6 @@ fun RunningScreen(
     val runningState by (runningService?.runningState ?: MutableStateFlow(RunningState())).collectAsState()
     val locationPoints by (runningService?.locationPoints ?: MutableStateFlow(emptyList())).collectAsState()
     
-    // 권한 요청 런처
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -95,7 +90,6 @@ fun RunningScreen(
         }
     }
     
-    // 서비스 연결
     val serviceConnection = remember {
         object : ServiceConnection {
             override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
@@ -111,7 +105,6 @@ fun RunningScreen(
         }
     }
     
-    // 권한 요청 및 서비스 시작
     LaunchedEffect(Unit) {
         val permissions = mutableListOf(
             Manifest.permission.ACCESS_FINE_LOCATION,
@@ -124,7 +117,6 @@ fun RunningScreen(
         
         permissionLauncher.launch(permissions.toTypedArray())
         
-        // 서비스 바인딩
         val intent = Intent(context, RunningService::class.java)
         context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
     }
@@ -178,7 +170,6 @@ fun RunningScreen(
             
             Spacer(modifier = Modifier.height(24.dp))
             
-            // 중앙: 러닝 데이터
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -186,7 +177,6 @@ fun RunningScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                // 거리
                 Text(
                     text = "거리",
                     style = BreezeTheme.typography.bodyMedium,
@@ -205,7 +195,6 @@ fun RunningScreen(
                 
                 Spacer(modifier = Modifier.height(32.dp))
                 
-                // 시간, 현재 페이스, 평균 페이스
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly
@@ -234,7 +223,6 @@ fun RunningScreen(
                 
                 Spacer(modifier = Modifier.height(32.dp))
                 
-                // 목표 페이스 표시
                 GlassCard(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -277,7 +265,6 @@ fun RunningScreen(
                 }
             }
             
-            // 하단: 컨트롤 버튼
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -285,14 +272,12 @@ fun RunningScreen(
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // 종료 버튼
                 RunningControlButton(
                     icon = Icons.Default.Stop,
                     contentDescription = "종료",
                     isPrimary = false,
                     onClick = {
                         haptic()
-                        // 러닝 데이터를 ViewModel에 저장
                         runningService?.let { service ->
                             viewModel.setPendingRunningData(
                                 paceSegmentsJson = service.getPaceSegmentsJson(),
@@ -306,7 +291,6 @@ fun RunningScreen(
                 
                 Spacer(modifier = Modifier.width(32.dp))
                 
-                // 일시정지/재개 버튼
                 RunningControlButton(
                     icon = if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
                     contentDescription = if (isPaused) "재개" else "일시정지",
@@ -393,99 +377,61 @@ private fun LiveRunningMapView(
     locationPoints: List<LatLngPoint>,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-    var mapView by remember { mutableStateOf<MapView?>(null) }
-    var kakaoMap by remember { mutableStateOf<KakaoMap?>(null) }
-    var currentRouteLine by remember { mutableStateOf<com.kakao.vectormap.route.RouteLine?>(null) }
-    
-    val apiKey = remember {
-        context.getSharedPreferences("breeze_settings", Context.MODE_PRIVATE)
-            .getString("kakao_api_key", null)
+    val latLngs = remember(locationPoints) {
+        locationPoints.map { LatLng(it.latitude, it.longitude) }
     }
-    
-    if (apiKey.isNullOrEmpty()) {
-        Box(
-            modifier = modifier,
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = "카카오 지도 API 키가 필요해요",
-                    style = BreezeTheme.typography.bodyLarge,
-                    color = BreezeTheme.colors.textTertiary
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "설정에서 API 키를 입력해주세요",
-                    style = BreezeTheme.typography.bodySmall,
-                    color = BreezeTheme.colors.textTertiary,
-                    textAlign = TextAlign.Center
-                )
-            }
-        }
-        return
+
+    val cameraPositionState = rememberCameraPositionState {
+        position = CameraPosition.fromLatLngZoom(
+            LatLng(37.5665, 126.9780),
+            16f
+        )
     }
-    
-    LaunchedEffect(locationPoints, kakaoMap) {
-        val map = kakaoMap ?: return@LaunchedEffect
-        if (locationPoints.size < 2) return@LaunchedEffect
-        
-        try {
-            val routeLineLayer: RouteLineLayer = map.routeLineManager?.layer ?: return@LaunchedEffect
-            
-            currentRouteLine?.let { routeLineLayer.remove(it) }
-            
-            val latLngs = locationPoints.map { LatLng.from(it.latitude, it.longitude) }
-            
-            val styles = RouteLineStylesSet.from(
-                RouteLineStyles.from(
-                    RouteLineStyle.from(8f, 0xFFFF3B30.toInt())
-                )
-            )
-            
-            val segment = RouteLineSegment.from(latLngs)
-                .setStyles(styles.getStyles(0))
-            
-            val options = RouteLineOptions.from(segment)
-                .setStylesSet(styles)
-            
-            currentRouteLine = routeLineLayer.addRouteLine(options)
-            
+
+    LaunchedEffect(locationPoints) {
+        if (locationPoints.isNotEmpty()) {
             val lastPoint = locationPoints.last()
-            val cameraUpdate = CameraUpdateFactory.newCenterPosition(
-                LatLng.from(lastPoint.latitude, lastPoint.longitude),
-                16
-            )
-            map.moveCamera(cameraUpdate)
-        } catch (e: Exception) {
-        }
-    }
-    
-    DisposableEffect(Unit) {
-        onDispose {
-            mapView?.finish()
-        }
-    }
-    
-    AndroidView(
-        factory = { ctx ->
-            MapView(ctx).apply {
-                mapView = this
-                start(
-                    object : MapLifeCycleCallback() {
-                        override fun onMapDestroy() {}
-                        override fun onMapError(error: Exception?) {}
-                    },
-                    object : KakaoMapReadyCallback() {
-                        override fun onMapReady(map: KakaoMap) {
-                            kakaoMap = map
-                        }
-                    }
+            cameraPositionState.animate(
+                CameraUpdateFactory.newLatLngZoom(
+                    LatLng(lastPoint.latitude, lastPoint.longitude),
+                    16f
                 )
-            }
-        },
-        modifier = modifier
-    )
+            )
+        }
+    }
+
+    val mapProperties = remember {
+        MapProperties(
+            mapType = MapType.NORMAL,
+            isMyLocationEnabled = false
+        )
+    }
+
+    val mapUiSettings = remember {
+        MapUiSettings(
+            zoomControlsEnabled = false,
+            myLocationButtonEnabled = false,
+            mapToolbarEnabled = false,
+            compassEnabled = false,
+            rotationGesturesEnabled = false,
+            scrollGesturesEnabled = false,
+            tiltGesturesEnabled = false,
+            zoomGesturesEnabled = false
+        )
+    }
+
+    GoogleMap(
+        modifier = modifier,
+        cameraPositionState = cameraPositionState,
+        properties = mapProperties,
+        uiSettings = mapUiSettings
+    ) {
+        if (latLngs.size >= 2) {
+            Polyline(
+                points = latLngs,
+                color = Color(0xFFFF3B30),
+                width = 12f
+            )
+        }
+    }
 }

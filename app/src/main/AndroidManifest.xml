@@ -41,10 +41,6 @@
             android:foregroundServiceType="location"
             android:exported="false" />
 
-        <meta-data
-            android:name="com.kakao.vectormap.APP_KEY"
-            android:value="${KAKAO_API_KEY}" />
-
     </application>
 
 </manifest>

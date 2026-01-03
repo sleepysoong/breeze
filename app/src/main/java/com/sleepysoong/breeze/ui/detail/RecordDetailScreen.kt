@@ -1,7 +1,6 @@
 package com.sleepysoong.breeze.ui.detail
 
 import android.content.Context
-import android.view.HapticFeedbackConstants
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -24,7 +23,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,28 +30,25 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.LatLngBounds
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
-import com.kakao.vectormap.KakaoMap
-import com.kakao.vectormap.KakaoMapReadyCallback
-import com.kakao.vectormap.LatLng
-import com.kakao.vectormap.MapLifeCycleCallback
-import com.kakao.vectormap.MapView
-import com.kakao.vectormap.camera.CameraUpdateFactory
-import com.kakao.vectormap.route.RouteLineLayer
-import com.kakao.vectormap.route.RouteLineOptions
-import com.kakao.vectormap.route.RouteLineSegment
-import com.kakao.vectormap.route.RouteLineStyle
-import com.kakao.vectormap.route.RouteLineStyles
-import com.kakao.vectormap.route.RouteLineStylesSet
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.MapProperties
+import com.google.maps.android.compose.MapType
+import com.google.maps.android.compose.MapUiSettings
+import com.google.maps.android.compose.Polyline
+import com.google.maps.android.compose.rememberCameraPositionState
 import com.sleepysoong.breeze.data.local.entity.RunningRecordEntity
 import com.sleepysoong.breeze.ml.PaceSegment
 import com.sleepysoong.breeze.service.LatLngPoint
@@ -107,7 +102,6 @@ private fun RecordDetailContent(
     onBack: () -> Unit,
     onDelete: (RunningRecordEntity) -> Unit
 ) {
-    val context = LocalContext.current
     val haptic = rememberHapticFeedback()
     var showDeleteDialog by remember { mutableStateOf(false) }
 
@@ -215,7 +209,7 @@ private fun RecordDetailContent(
                         .height(250.dp)
                 ) {
                     if (routePoints.isNotEmpty()) {
-                        KakaoMapRouteView(
+                        GoogleMapRouteView(
                             routePoints = routePoints,
                             modifier = Modifier.fillMaxSize()
                         )
@@ -531,138 +525,71 @@ private fun DetailStatItem(
 }
 
 @Composable
-fun KakaoMapRouteView(
+fun GoogleMapRouteView(
     routePoints: List<LatLngPoint>,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-    var mapView by remember { mutableStateOf<MapView?>(null) }
-    var kakaoMap by remember { mutableStateOf<KakaoMap?>(null) }
+    if (routePoints.isEmpty()) return
 
-    val apiKey = remember {
-        getKakaoApiKey(context)
+    val latLngs = remember(routePoints) {
+        routePoints.map { LatLng(it.latitude, it.longitude) }
     }
 
-    if (apiKey.isNullOrEmpty()) {
-        Box(
-            modifier = modifier,
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = "카카오 지도 API 키가 필요해요",
-                    style = BreezeTheme.typography.bodyLarge,
-                    color = BreezeTheme.colors.textTertiary
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "설정에서 API 키를 입력해주세요",
-                    style = BreezeTheme.typography.bodySmall,
-                    color = BreezeTheme.colors.textTertiary,
-                    textAlign = TextAlign.Center
+    val bounds = remember(latLngs) {
+        if (latLngs.size >= 2) {
+            val builder = LatLngBounds.Builder()
+            latLngs.forEach { builder.include(it) }
+            builder.build()
+        } else null
+    }
+
+    val cameraPositionState = rememberCameraPositionState {
+        position = CameraPosition.fromLatLngZoom(
+            latLngs.firstOrNull() ?: LatLng(37.5665, 126.9780),
+            15f
+        )
+    }
+
+    val mapProperties = remember {
+        MapProperties(
+            mapType = MapType.NORMAL,
+            isMyLocationEnabled = false
+        )
+    }
+
+    val mapUiSettings = remember {
+        MapUiSettings(
+            zoomControlsEnabled = false,
+            myLocationButtonEnabled = false,
+            mapToolbarEnabled = false,
+            compassEnabled = false,
+            rotationGesturesEnabled = false,
+            scrollGesturesEnabled = true,
+            tiltGesturesEnabled = false,
+            zoomGesturesEnabled = true
+        )
+    }
+
+    GoogleMap(
+        modifier = modifier,
+        cameraPositionState = cameraPositionState,
+        properties = mapProperties,
+        uiSettings = mapUiSettings,
+        onMapLoaded = {
+            bounds?.let {
+                cameraPositionState.move(
+                    CameraUpdateFactory.newLatLngBounds(it, 50)
                 )
             }
         }
-        return
-    }
-
-    DisposableEffect(Unit) {
-        onDispose {
-            mapView?.finish()
-        }
-    }
-
-    AndroidView(
-        factory = { ctx ->
-            MapView(ctx).apply {
-                mapView = this
-                start(
-                    object : MapLifeCycleCallback() {
-                        override fun onMapDestroy() {}
-                        override fun onMapError(error: Exception?) {}
-                    },
-                    object : KakaoMapReadyCallback() {
-                        override fun onMapReady(map: KakaoMap) {
-                            kakaoMap = map
-                            if (routePoints.isNotEmpty()) {
-                                drawRoute(map, routePoints)
-                                moveCameraToRoute(map, routePoints)
-                            }
-                        }
-                    }
-                )
-            }
-        },
-        modifier = modifier
-    )
-}
-
-private fun drawRoute(map: KakaoMap, points: List<LatLngPoint>) {
-    if (points.size < 2) return
-
-    try {
-        val routeLineLayer: RouteLineLayer = map.routeLineManager?.layer ?: return
-        val latLngs = points.map { LatLng.from(it.latitude, it.longitude) }
-
-        val styles = RouteLineStylesSet.from(
-            RouteLineStyles.from(
-                RouteLineStyle.from(8f, 0xFFFF3B30.toInt())
+    ) {
+        if (latLngs.size >= 2) {
+            Polyline(
+                points = latLngs,
+                color = Color(0xFFFF3B30),
+                width = 12f
             )
-        )
-
-        val segment = RouteLineSegment.from(latLngs)
-            .setStyles(styles.getStyles(0))
-
-        val options = RouteLineOptions.from(segment)
-            .setStylesSet(styles)
-
-        routeLineLayer.addRouteLine(options)
-    } catch (e: Exception) {
-    }
-}
-
-private fun moveCameraToRoute(map: KakaoMap, points: List<LatLngPoint>) {
-    if (points.isEmpty()) return
-
-    try {
-        val minLat = points.minOf { it.latitude }
-        val maxLat = points.maxOf { it.latitude }
-        val minLng = points.minOf { it.longitude }
-        val maxLng = points.maxOf { it.longitude }
-
-        val centerLat = (minLat + maxLat) / 2
-        val centerLng = (minLng + maxLng) / 2
-
-        val latDiff = maxLat - minLat
-        val lngDiff = maxLng - minLng
-        val maxDiff = maxOf(latDiff, lngDiff)
-
-        val zoomLevel = when {
-            maxDiff > 0.1 -> 10
-            maxDiff > 0.05 -> 12
-            maxDiff > 0.02 -> 13
-            maxDiff > 0.01 -> 14
-            maxDiff > 0.005 -> 15
-            else -> 16
         }
-
-        val cameraUpdate = CameraUpdateFactory.newCenterPosition(
-            LatLng.from(centerLat, centerLng),
-            zoomLevel
-        )
-        map.moveCamera(cameraUpdate)
-    } catch (e: Exception) {
-    }
-}
-
-private fun getKakaoApiKey(context: Context): String? {
-    return try {
-        val prefs = context.getSharedPreferences("breeze_settings", Context.MODE_PRIVATE)
-        prefs.getString("kakao_api_key", null)
-    } catch (e: Exception) {
-        null
     }
 }
 
