@@ -28,7 +28,7 @@ fun RouteLineThumbnail(
     modifier: Modifier = Modifier,
     size: Dp = 60.dp,
     lineColor: Color = BreezeTheme.colors.primary,
-    lineWidth: Float = 3f,
+    lineWidth: Float = 6f,
     backgroundColor: Color = BreezeTheme.colors.surface,
     padding: Float = 8f
 ) {
@@ -80,29 +80,6 @@ fun RouteLineThumbnail(
                         width = lineWidth,
                         cap = StrokeCap.Round,
                         join = StrokeJoin.Round
-                    )
-                )
-
-                val startPointColor = Color(0xFF34C759)
-                val endPointColor = lineColor
-                val pointRadius = lineWidth * 2
-
-                drawCircle(
-                    color = startPointColor,
-                    radius = pointRadius,
-                    center = Offset(
-                        firstPoint.x * canvasWidth,
-                        firstPoint.y * canvasHeight
-                    )
-                )
-
-                val lastPoint = normalizedPoints.last()
-                drawCircle(
-                    color = endPointColor,
-                    radius = pointRadius,
-                    center = Offset(
-                        lastPoint.x * canvasWidth,
-                        lastPoint.y * canvasHeight
                     )
                 )
             }

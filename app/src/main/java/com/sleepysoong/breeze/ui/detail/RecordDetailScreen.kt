@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -49,6 +50,7 @@ import com.google.maps.android.compose.rememberCameraPositionState
 import com.sleepysoong.breeze.data.local.entity.RunningRecordEntity
 import com.sleepysoong.breeze.ml.PaceSegment
 import com.sleepysoong.breeze.service.LatLngPoint
+import android.util.Log
 import com.sleepysoong.breeze.ui.components.GlassCard
 import com.sleepysoong.breeze.ui.components.PaceGraph
 import com.sleepysoong.breeze.ui.components.SafeGoogleMap
@@ -548,6 +550,20 @@ fun GoogleMapRouteView(
         )
     }
 
+    var isMapLoaded by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isMapLoaded, bounds) {
+        if (isMapLoaded && bounds != null) {
+            try {
+                cameraPositionState.animate(
+                    CameraUpdateFactory.newLatLngBounds(bounds, 50)
+                )
+            } catch (e: Exception) {
+                Log.e("GoogleMapRouteView", "Camera animation failed", e)
+            }
+        }
+    }
+
     val mapProperties = remember {
         MapProperties(
             mapType = MapType.NORMAL,
@@ -574,11 +590,7 @@ fun GoogleMapRouteView(
         properties = mapProperties,
         uiSettings = mapUiSettings,
         onMapLoaded = {
-            bounds?.let {
-                cameraPositionState.move(
-                    CameraUpdateFactory.newLatLngBounds(it, 50)
-                )
-            }
+            isMapLoaded = true
         }
     ) {
         if (latLngs.size >= 2) {

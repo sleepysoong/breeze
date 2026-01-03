@@ -149,8 +149,7 @@ private fun HistoryRecordCard(
         ) {
             RouteLineThumbnail(
                 routePoints = routePoints,
-                size = 56.dp,
-                lineWidth = 2.5f
+                size = 56.dp
             )
 
             Spacer(modifier = Modifier.width(16.dp))
