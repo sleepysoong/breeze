@@ -8,6 +8,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
+import androidx.compose.material.icons.automirrored.outlined.TrendingUp
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
@@ -45,6 +47,7 @@ import com.sleepysoong.breeze.ui.detail.RecordDetailScreen
 import com.sleepysoong.breeze.ui.history.HistoryScreen
 import com.sleepysoong.breeze.ui.home.HomeScreen
 import com.sleepysoong.breeze.ui.pace.PaceDialScreen
+import com.sleepysoong.breeze.ui.prediction.PredictionScreen
 import com.sleepysoong.breeze.ui.result.RunningResultScreen
 import com.sleepysoong.breeze.ui.running.RunningScreen
 import com.sleepysoong.breeze.ui.settings.SettingsScreen
@@ -84,6 +87,13 @@ sealed class BottomNavItem(
         unselectedIcon = Icons.Outlined.History
     )
 
+    object Prediction : BottomNavItem(
+        route = "prediction",
+        title = "예측",
+        selectedIcon = Icons.AutoMirrored.Filled.TrendingUp,
+        unselectedIcon = Icons.AutoMirrored.Outlined.TrendingUp
+    )
+
     object Settings : BottomNavItem(
         route = "settings",
         title = "설정",
@@ -95,6 +105,7 @@ sealed class BottomNavItem(
 val bottomNavItems = listOf(
     BottomNavItem.Home,
     BottomNavItem.History,
+    BottomNavItem.Prediction,
     BottomNavItem.Settings
 )
 
@@ -169,6 +180,16 @@ fun BreezeNavHost(
                     onDeleteRecord = { record ->
                         viewModel.deleteRecord(record)
                     }
+                )
+            }
+            composable(BottomNavItem.Prediction.route) {
+                val modelStatus by viewModel.modelStatus.collectAsState()
+                val allRecords by viewModel.allRecords.collectAsState()
+                
+                PredictionScreen(
+                    hasTrainedModel = modelStatus.hasTrainedModel,
+                    trainingCount = modelStatus.trainingCount,
+                    allRecords = allRecords
                 )
             }
             composable(BottomNavItem.Settings.route) {
