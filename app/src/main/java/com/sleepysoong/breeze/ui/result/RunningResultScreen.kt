@@ -32,8 +32,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.sleepysoong.breeze.service.LatLngPoint
 import com.sleepysoong.breeze.ui.components.GlassCard
 import com.sleepysoong.breeze.ui.components.rememberHapticFeedback
+import com.sleepysoong.breeze.ui.detail.GoogleMapRouteView
 import com.sleepysoong.breeze.ui.theme.BreezeTheme
 
 @Composable
@@ -42,6 +44,7 @@ fun RunningResultScreen(
     elapsedTimeMs: Long,
     averagePaceSeconds: Int,
     targetPaceSeconds: Int,
+    routePoints: List<LatLngPoint>,
     onSave: () -> Unit,
     onDiscard: () -> Unit
 ) {
@@ -109,31 +112,38 @@ fun RunningResultScreen(
             
             Spacer(modifier = Modifier.height(32.dp))
             
-            // 지도 영역 (플레이스홀더)
+            // 지도 영역
             GlassCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(180.dp)
             ) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
+                if (routePoints.size >= 2) {
+                    GoogleMapRouteView(
+                        routePoints = routePoints,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = "경로 지도",
-                            style = BreezeTheme.typography.bodyLarge,
-                            color = BreezeTheme.colors.textTertiary
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Google Maps API 키 설정 후 표시됩니다",
-                            style = BreezeTheme.typography.bodySmall,
-                            color = BreezeTheme.colors.textTertiary,
-                            textAlign = TextAlign.Center
-                        )
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "경로 데이터 없음",
+                                style = BreezeTheme.typography.bodyLarge,
+                                color = BreezeTheme.colors.textTertiary
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "이 기록에는 GPS 경로가 저장되지 않았어요",
+                                style = BreezeTheme.typography.bodySmall,
+                                color = BreezeTheme.colors.textTertiary,
+                                textAlign = TextAlign.Center
+                            )
+                        }
                     }
                 }
             }

@@ -49,6 +49,9 @@ class RunningViewModel @Inject constructor(
     private var pendingPaceSegmentsJson: String = "[]"
     private var pendingRoutePointsJson: String = "[]"
     
+    private val _pendingRoutePoints = MutableStateFlow<String>("[]")
+    val pendingRoutePoints: StateFlow<String> = _pendingRoutePoints.asStateFlow()
+    
     init {
         updateModelStatus()
     }
@@ -67,6 +70,7 @@ class RunningViewModel @Inject constructor(
     fun setPendingRunningData(paceSegmentsJson: String, routePointsJson: String) {
         pendingPaceSegmentsJson = paceSegmentsJson
         pendingRoutePointsJson = routePointsJson
+        _pendingRoutePoints.value = routePointsJson
     }
     
     fun saveRunningRecord(
@@ -91,6 +95,7 @@ class RunningViewModel @Inject constructor(
                 // 저장 후 pending 초기화
                 pendingPaceSegmentsJson = "[]"
                 pendingRoutePointsJson = "[]"
+                _pendingRoutePoints.value = "[]"
                 
                 // 저장 후 모델 재학습
                 trainModelFromAllRecords()

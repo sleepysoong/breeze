@@ -28,7 +28,7 @@ fun RouteLineThumbnail(
     modifier: Modifier = Modifier,
     size: Dp = 60.dp,
     lineColor: Color = BreezeTheme.colors.primary,
-    lineWidth: Float = 6f,
+    lineWidth: Float = 12f,
     backgroundColor: Color = BreezeTheme.colors.surface,
     padding: Float = 8f
 ) {

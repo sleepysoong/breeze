@@ -24,6 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -37,6 +38,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import com.sleepysoong.breeze.service.LatLngPoint
 import com.sleepysoong.breeze.ui.detail.RecordDetailScreen
 import com.sleepysoong.breeze.ui.history.HistoryScreen
 import com.sleepysoong.breeze.ui.home.HomeScreen
@@ -218,7 +222,17 @@ fun BreezeNavHost(
                 val averagePace = backStackEntry.arguments?.getInt("averagePace") ?: 0
                 val targetPace = backStackEntry.arguments?.getInt("targetPace") ?: 390
                 
-                // 저장 결과 처리
+                val pendingRoutePointsJson by viewModel.pendingRoutePoints.collectAsState()
+                val routePoints = remember(pendingRoutePointsJson) {
+                    try {
+                        val gson = Gson()
+                        val type = object : TypeToken<List<LatLngPoint>>() {}.type
+                        gson.fromJson<List<LatLngPoint>>(pendingRoutePointsJson, type) ?: emptyList()
+                    } catch (e: Exception) {
+                        emptyList()
+                    }
+                }
+                
                 LaunchedEffect(saveResult) {
                     if (saveResult is SaveResult.Success) {
                         viewModel.resetSaveResult()
@@ -233,6 +247,7 @@ fun BreezeNavHost(
                     elapsedTimeMs = time,
                     averagePaceSeconds = averagePace,
                     targetPaceSeconds = targetPace,
+                    routePoints = routePoints,
                     onSave = {
                         viewModel.saveRunningRecord(
                             distanceMeters = distance,
