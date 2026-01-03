@@ -45,13 +45,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
-import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapProperties
 import com.google.maps.android.compose.MapType
 import com.google.maps.android.compose.MapUiSettings
@@ -62,6 +60,7 @@ import com.sleepysoong.breeze.service.MetronomeManager
 import com.sleepysoong.breeze.service.RunningService
 import com.sleepysoong.breeze.service.RunningState
 import com.sleepysoong.breeze.ui.components.GlassCard
+import com.sleepysoong.breeze.ui.components.SafeGoogleMap
 import com.sleepysoong.breeze.ui.components.rememberHapticFeedback
 import com.sleepysoong.breeze.ui.theme.BreezeTheme
 import com.sleepysoong.breeze.ui.viewmodel.RunningViewModel
@@ -379,35 +378,6 @@ private fun LiveRunningMapView(
     locationPoints: List<LatLngPoint>,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
-    val prefs = remember { context.getSharedPreferences("breeze_settings", Context.MODE_PRIVATE) }
-    val apiKey = remember { prefs.getString("google_maps_api_key", "") ?: "" }
-    
-    if (apiKey.isBlank()) {
-        Box(
-            modifier = modifier.background(BreezeTheme.colors.surface),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    text = "경로 지도",
-                    style = BreezeTheme.typography.bodyLarge,
-                    color = BreezeTheme.colors.textTertiary
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "설정에서 Google Maps API 키를\n입력하면 지도가 표시됩니다",
-                    style = BreezeTheme.typography.bodySmall,
-                    color = BreezeTheme.colors.textTertiary,
-                    textAlign = TextAlign.Center
-                )
-            }
-        }
-        return
-    }
-    
     val latLngs = remember(locationPoints) {
         locationPoints.map { LatLng(it.latitude, it.longitude) }
     }
@@ -455,7 +425,7 @@ private fun LiveRunningMapView(
         )
     }
 
-    GoogleMap(
+    SafeGoogleMap(
         modifier = modifier,
         cameraPositionState = cameraPositionState,
         properties = mapProperties,
