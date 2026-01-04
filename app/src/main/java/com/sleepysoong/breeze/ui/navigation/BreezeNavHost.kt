@@ -112,11 +112,22 @@ val bottomNavItems = listOf(
 @Composable
 fun BreezeNavHost(
     navController: NavHostController = rememberNavController(),
-    viewModel: RunningViewModel = hiltViewModel()
+    viewModel: RunningViewModel = hiltViewModel(),
+    initialIntent: android.content.Intent? = null
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
     val saveResult by viewModel.saveResult.collectAsState()
+
+    LaunchedEffect(initialIntent) {
+        if (initialIntent?.action == com.sleepysoong.breeze.MainActivity.ACTION_OPEN_RUNNING) {
+            val paceSeconds = initialIntent.getIntExtra(com.sleepysoong.breeze.service.RunningService.EXTRA_TARGET_PACE, 390)
+            navController.navigate(Routes.running(paceSeconds)) {
+                popUpTo(navController.graph.startDestinationId) { inclusive = false }
+                launchSingleTop = true
+            }
+        }
+    }
     
     // 하단 네비게이션 바를 숨길 화면들
     val hideBottomBarRoutes = listOf(Routes.PACE_DIAL, Routes.RUNNING, Routes.RESULT, Routes.RECORD_DETAIL)
@@ -213,7 +224,10 @@ fun BreezeNavHost(
                     navArgument("paceSeconds") { type = NavType.IntType }
                 )
             ) { backStackEntry ->
-                val paceSeconds = backStackEntry.arguments?.getInt("paceSeconds") ?: 390
+                val incomingIntent = navBackStackEntry?.arguments?.getParcelable<android.content.Intent>("android-support-nav:controller:deepLinkIntent")
+                val paceSecondsFromIntent = incomingIntent?.takeIf { it.action == com.sleepysoong.breeze.MainActivity.ACTION_OPEN_RUNNING }
+                    ?.getIntExtra(com.sleepysoong.breeze.service.RunningService.EXTRA_TARGET_PACE, 390)
+                val paceSeconds = paceSecondsFromIntent ?: backStackEntry.arguments?.getInt("paceSeconds") ?: 390
                 RunningScreen(
                     targetPaceSeconds = paceSeconds,
                     viewModel = viewModel,

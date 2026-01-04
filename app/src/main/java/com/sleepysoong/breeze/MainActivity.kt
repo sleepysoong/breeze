@@ -1,5 +1,6 @@
 package com.sleepysoong.breeze
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -16,15 +17,35 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        handleIntentAction(intent)
+        setContentWithIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleIntentAction(intent)
+    }
+
+    private fun setContentWithIntent(initialIntent: Intent?) {
         setContent {
             BreezeTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = BreezeTheme.colors.background
                 ) {
-                    BreezeNavHost()
+                    BreezeNavHost(initialIntent = initialIntent)
                 }
             }
         }
+    }
+
+    private fun handleIntentAction(intent: Intent) {
+        if (intent.action == ACTION_OPEN_RUNNING) {
+            setContentWithIntent(intent)
+        }
+    }
+
+    companion object {
+        const val ACTION_OPEN_RUNNING = "ACTION_OPEN_RUNNING"
     }
 }
