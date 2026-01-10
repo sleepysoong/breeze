@@ -21,7 +21,7 @@ android {
 
     defaultConfig {
         applicationId = "com.sleepysoong.breeze"
-        minSdk = 26
+        minSdk = 36
         targetSdk = 36
         versionCode = 18
         versionName = "1.0.17"
