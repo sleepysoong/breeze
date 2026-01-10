@@ -11,13 +11,10 @@ import android.graphics.Color
 import android.graphics.drawable.Icon
 import android.location.Location
 import android.os.Binder
-import android.os.Build
 import android.os.IBinder
 import android.os.Looper
 import java.util.Timer
 import java.util.TimerTask
-import androidx.annotation.RequiresApi
-import androidx.core.app.NotificationCompat
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
@@ -105,19 +102,17 @@ class RunningService : Service() {
     }
     
     private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "러닝 추적",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "러닝 중 위치를 추적합니다"
-                setShowBadge(false)
-            }
-            
-            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.createNotificationChannel(channel)
+        val channel = NotificationChannel(
+            CHANNEL_ID,
+            "러닝 추적",
+            NotificationManager.IMPORTANCE_LOW
+        ).apply {
+            description = "러닝 중 위치를 추적합니다"
+            setShowBadge(false)
         }
+        
+        val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.createNotificationChannel(channel)
     }
     
     private fun createNotification(): Notification {
@@ -132,15 +127,6 @@ class RunningService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
         
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) {
-            createLiveUpdateNotification(pendingIntent)
-        } else {
-            createLegacyNotification(pendingIntent)
-        }
-    }
-    
-    @RequiresApi(Build.VERSION_CODES.BAKLAVA)
-    private fun createLiveUpdateNotification(pendingIntent: PendingIntent): Notification {
         val elapsedSeconds = if (startTimeMs > 0) {
             ((System.currentTimeMillis() - startTimeMs - totalPausedTimeMs) / 1000).toInt()
         } else 0
@@ -193,39 +179,6 @@ class RunningService : Service() {
             .setOngoing(true)
             .setCategory(Notification.CATEGORY_WORKOUT)
             .setColor(paceColor)
-            .build()
-    }
-    
-    private fun createLegacyNotification(pendingIntent: PendingIntent): Notification {
-        val elapsedSeconds = if (startTimeMs > 0) {
-            ((System.currentTimeMillis() - startTimeMs - totalPausedTimeMs) / 1000).toInt()
-        } else 0
-        
-        val minutes = elapsedSeconds / 60
-        val seconds = elapsedSeconds % 60
-        val distanceKm = totalDistanceMeters / 1000.0
-        val currentPace = if (distanceKm > 0.01) {
-            ((elapsedSeconds.toDouble()) / distanceKm).toInt()
-        } else 0
-        val paceMin = currentPace / 60
-        val paceSec = currentPace % 60
-        
-        val title = if (isPaused) "러닝 일시정지" else "러닝 중"
-        val contentText = if (currentPace > 0) {
-            String.format("%.2f km  |  %d:%02d  |  %d'%02d\"/km", distanceKm, minutes, seconds, paceMin, paceSec)
-        } else {
-            String.format("%.2f km  |  %d:%02d", distanceKm, minutes, seconds)
-        }
-        
-        return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle(title)
-            .setContentText(contentText)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentIntent(pendingIntent)
-            .setOngoing(true)
-            .setSilent(true)
-            .setCategory(NotificationCompat.CATEGORY_WORKOUT)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .build()
     }
     
@@ -482,11 +435,7 @@ class RunningService : Service() {
                 action = ACTION_START
                 putExtra(EXTRA_TARGET_PACE, targetPaceSeconds)
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
-            }
+            context.startForegroundService(intent)
         }
         
         fun pauseService(context: Context) {
