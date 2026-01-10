@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -47,7 +46,6 @@ import com.sleepysoong.breeze.ui.components.GlassCard
 import com.sleepysoong.breeze.ui.components.rememberHapticFeedback
 import com.sleepysoong.breeze.ui.theme.BreezeTheme
 import kotlinx.coroutines.delay
-import kotlin.math.roundToInt
 
 @Composable
 fun PaceDialScreen(
@@ -55,27 +53,45 @@ fun PaceDialScreen(
     onDismiss: () -> Unit,
     onStartRunning: (paceSeconds: Int) -> Unit
 ) {
-    var paceSeconds by remember { mutableIntStateOf(initialPaceSeconds) }
-    var dragAccumulator by remember { mutableFloatStateOf(0f) }
-    var isPulse by remember { mutableStateOf(false) }
+    var minutes by remember { mutableIntStateOf(initialPaceSeconds / 60) }
+    var seconds by remember { mutableIntStateOf(initialPaceSeconds % 60) }
+    
+    var minuteDragAccumulator by remember { mutableFloatStateOf(0f) }
+    var secondDragAccumulator by remember { mutableFloatStateOf(0f) }
+    
+    var isMinutePulse by remember { mutableStateOf(false) }
+    var isSecondPulse by remember { mutableStateOf(false) }
+    
     val haptic = rememberHapticFeedback()
     val view = LocalView.current
     
-    val paceScale by animateFloatAsState(
-        targetValue = if (isPulse) 1.05f else 1f,
+    val minuteScale by animateFloatAsState(
+        targetValue = if (isMinutePulse) 1.08f else 1f,
         animationSpec = spring(dampingRatio = 0.5f, stiffness = 400f),
-        label = "paceScale"
+        label = "minuteScale"
     )
     
-    LaunchedEffect(isPulse) {
-        if (isPulse) {
+    val secondScale by animateFloatAsState(
+        targetValue = if (isSecondPulse) 1.08f else 1f,
+        animationSpec = spring(dampingRatio = 0.5f, stiffness = 400f),
+        label = "secondScale"
+    )
+    
+    LaunchedEffect(isMinutePulse) {
+        if (isMinutePulse) {
             delay(100)
-            isPulse = false
+            isMinutePulse = false
         }
     }
     
-    val minutes = paceSeconds / 60
-    val seconds = paceSeconds % 60
+    LaunchedEffect(isSecondPulse) {
+        if (isSecondPulse) {
+            delay(100)
+            isSecondPulse = false
+        }
+    }
+    
+    val paceSeconds = minutes * 60 + seconds
     
     Box(
         modifier = Modifier
@@ -115,146 +131,66 @@ fun PaceDialScreen(
             Spacer(modifier = Modifier.height(12.dp))
             
             Text(
-                text = "위아래로 드래그해서 조절하세요",
+                text = "각 다이얼을 위아래로 드래그해서 조절하세요",
                 style = BreezeTheme.typography.bodyMedium,
                 color = BreezeTheme.colors.textTertiary
             )
             
             Spacer(modifier = Modifier.weight(1f))
             
-            // 페이스 다이얼
-            GlassCard(
-                modifier = Modifier
-                    .size(280.dp)
-                    .pointerInput(Unit) {
-                        detectVerticalDragGestures(
-                            onDragEnd = {
-                                dragAccumulator = 0f
-                            },
-                            onVerticalDrag = { _, dragAmount ->
-                                dragAccumulator += dragAmount
-                                
-                                val threshold = 30f
-                                if (dragAccumulator > threshold) {
-                                    val newPace = paceSeconds + 10
-                                    if (newPace <= 1800) {
-                                        paceSeconds = newPace
-                                        isPulse = true
-                                        view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
-                                    } else {
-                                        // max 도달 시 강한 피드백
-                                        view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                                    }
-                                    dragAccumulator = 0f
-                                } else if (dragAccumulator < -threshold) {
-                                    val newPace = paceSeconds - 10
-                                    if (newPace >= 60) {
-                                        paceSeconds = newPace
-                                        isPulse = true
-                                        view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
-                                    } else {
-                                        // min 도달 시 강한 피드백
-                                        view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                                    }
-                                    dragAccumulator = 0f
-                                }
-                            }
-                        )
-                    },
-                cornerRadius = 140.dp
+            // 분:초 다이얼 (분리형)
+            Row(
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    // 그라디언트 페이드 효과 (상단)
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(60.dp)
-                            .align(Alignment.TopCenter)
-                            .background(
-                                Brush.verticalGradient(
-                                    colors = listOf(
-                                        BreezeTheme.colors.cardBackground,
-                                        Color.Transparent
-                                    )
-                                )
-                            )
-                    )
-                    
-                    // 그라디언트 페이드 효과 (하단)
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(60.dp)
-                            .align(Alignment.BottomCenter)
-                            .background(
-                                Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color.Transparent,
-                                        BreezeTheme.colors.cardBackground
-                                    )
-                                )
-                            )
-                    )
-                    
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        // 이전 값 (희미하게)
-                        val prevMinutes = (paceSeconds + 10) / 60
-                        val prevSeconds = (paceSeconds + 10) % 60
-                        if (paceSeconds + 10 <= 1800) {
-                            Text(
-                                text = String.format("%d:%02d", prevMinutes, prevSeconds),
-                                style = BreezeTheme.typography.headlineMedium.copy(fontSize = 28.sp),
-                                color = BreezeTheme.colors.textTertiary.copy(alpha = 0.4f)
-                            )
-                        } else {
-                            Spacer(modifier = Modifier.height(36.dp))
-                        }
-                        
-                        Spacer(modifier = Modifier.height(16.dp))
-                        
-                        // 현재 값 (크고 강조)
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.scale(paceScale)
-                        ) {
-                            Text(
-                                text = String.format("%d", minutes),
-                                style = BreezeTheme.typography.displayLarge.copy(fontSize = 64.sp),
-                                color = BreezeTheme.colors.textPrimary
-                            )
-                            Text(
-                                text = ":",
-                                style = BreezeTheme.typography.displayLarge.copy(fontSize = 64.sp),
-                                color = BreezeTheme.colors.primary
-                            )
-                            Text(
-                                text = String.format("%02d", seconds),
-                                style = BreezeTheme.typography.displayLarge.copy(fontSize = 64.sp),
-                                color = BreezeTheme.colors.textPrimary
-                            )
-                        }
-                        
-                        Spacer(modifier = Modifier.height(16.dp))
-                        
-                        // 다음 값 (희미하게)
-                        val nextMinutes = (paceSeconds - 10) / 60
-                        val nextSeconds = (paceSeconds - 10) % 60
-                        if (paceSeconds - 10 >= 60) {
-                            Text(
-                                text = String.format("%d:%02d", nextMinutes, nextSeconds),
-                                style = BreezeTheme.typography.headlineMedium.copy(fontSize = 28.sp),
-                                color = BreezeTheme.colors.textTertiary.copy(alpha = 0.4f)
-                            )
-                        } else {
-                            Spacer(modifier = Modifier.height(36.dp))
-                        }
-                    }
-                }
+                // 분 다이얼
+                NumberDial(
+                    value = minutes,
+                    minValue = 1,
+                    maxValue = 30,
+                    label = "분",
+                    scale = minuteScale,
+                    onValueChange = { newValue ->
+                        minutes = newValue
+                        isMinutePulse = true
+                        view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                    },
+                    onLimitReached = {
+                        view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                    },
+                    dragAccumulator = minuteDragAccumulator,
+                    onDragAccumulatorChange = { minuteDragAccumulator = it }
+                )
+                
+                // 콜론 구분자
+                Text(
+                    text = ":",
+                    style = BreezeTheme.typography.displayLarge.copy(fontSize = 56.sp),
+                    color = BreezeTheme.colors.primary,
+                    modifier = Modifier.padding(horizontal = 8.dp)
+                )
+                
+                // 초 다이얼
+                NumberDial(
+                    value = seconds,
+                    minValue = 0,
+                    maxValue = 59,
+                    label = "초",
+                    scale = secondScale,
+                    formatValue = { String.format("%02d", it) },
+                    onValueChange = { newValue ->
+                        seconds = newValue
+                        isSecondPulse = true
+                        view.performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK)
+                    },
+                    onLimitReached = {
+                        view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                    },
+                    dragAccumulator = secondDragAccumulator,
+                    onDragAccumulatorChange = { secondDragAccumulator = it },
+                    step = 5 // 5초 단위로 조절
+                )
             }
             
             Spacer(modifier = Modifier.height(16.dp))
@@ -314,6 +250,146 @@ fun PaceDialScreen(
             }
             
             Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+}
+
+@Composable
+private fun NumberDial(
+    value: Int,
+    minValue: Int,
+    maxValue: Int,
+    label: String,
+    scale: Float,
+    formatValue: (Int) -> String = { it.toString() },
+    onValueChange: (Int) -> Unit,
+    onLimitReached: () -> Unit,
+    dragAccumulator: Float,
+    onDragAccumulatorChange: (Float) -> Unit,
+    step: Int = 1
+) {
+    GlassCard(
+        modifier = Modifier
+            .size(width = 120.dp, height = 200.dp)
+            .pointerInput(Unit) {
+                detectVerticalDragGestures(
+                    onDragEnd = {
+                        onDragAccumulatorChange(0f)
+                    },
+                    onVerticalDrag = { _, dragAmount ->
+                        val newAccumulator = dragAccumulator + dragAmount
+                        onDragAccumulatorChange(newAccumulator)
+                        
+                        val threshold = 25f
+                        if (newAccumulator > threshold) {
+                            // 위로 드래그 = 값 증가 (느리게)
+                            val newValue = value + step
+                            if (newValue <= maxValue) {
+                                onValueChange(newValue)
+                            } else {
+                                onLimitReached()
+                            }
+                            onDragAccumulatorChange(0f)
+                        } else if (newAccumulator < -threshold) {
+                            // 아래로 드래그 = 값 감소 (빠르게)
+                            val newValue = value - step
+                            if (newValue >= minValue) {
+                                onValueChange(newValue)
+                            } else {
+                                onLimitReached()
+                            }
+                            onDragAccumulatorChange(0f)
+                        }
+                    }
+                )
+            },
+        cornerRadius = 24.dp
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            // 상단 그라디언트 페이드
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+                    .align(Alignment.TopCenter)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                BreezeTheme.colors.cardBackground,
+                                Color.Transparent
+                            )
+                        )
+                    )
+            )
+            
+            // 하단 그라디언트 페이드
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp)
+                    .align(Alignment.BottomCenter)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                BreezeTheme.colors.cardBackground
+                            )
+                        )
+                    )
+            )
+            
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // 이전 값 (위)
+                val prevValue = value + step
+                if (prevValue <= maxValue) {
+                    Text(
+                        text = formatValue(prevValue),
+                        style = BreezeTheme.typography.headlineMedium.copy(fontSize = 24.sp),
+                        color = BreezeTheme.colors.textTertiary.copy(alpha = 0.4f)
+                    )
+                } else {
+                    Spacer(modifier = Modifier.height(32.dp))
+                }
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                // 현재 값
+                Text(
+                    text = formatValue(value),
+                    style = BreezeTheme.typography.displayLarge.copy(fontSize = 56.sp),
+                    color = BreezeTheme.colors.textPrimary,
+                    modifier = Modifier.scale(scale)
+                )
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                // 다음 값 (아래)
+                val nextValue = value - step
+                if (nextValue >= minValue) {
+                    Text(
+                        text = formatValue(nextValue),
+                        style = BreezeTheme.typography.headlineMedium.copy(fontSize = 24.sp),
+                        color = BreezeTheme.colors.textTertiary.copy(alpha = 0.4f)
+                    )
+                } else {
+                    Spacer(modifier = Modifier.height(32.dp))
+                }
+            }
+            
+            // 라벨
+            Text(
+                text = label,
+                style = BreezeTheme.typography.bodySmall,
+                color = BreezeTheme.colors.textTertiary,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 8.dp)
+            )
         }
     }
 }
