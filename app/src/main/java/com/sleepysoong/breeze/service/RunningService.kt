@@ -7,12 +7,14 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.graphics.Color
 import android.graphics.drawable.Icon
 import android.location.Location
 import android.os.Binder
 import android.os.IBinder
 import android.os.Looper
+import android.os.PowerManager
 import java.util.Timer
 import java.util.TimerTask
 import com.google.android.gms.location.FusedLocationProviderClient
@@ -39,6 +41,9 @@ class RunningService : Service() {
     private var metronomeManager: MetronomeManager? = null
     private var pacePredictionModel: PacePredictionModel? = null
     private val gson = Gson()
+    
+    // WakeLock으로 CPU 깨어있게 유지
+    private var wakeLock: PowerManager.WakeLock? = null
     
     // 1초 UI 업데이트 타이머
     private var updateTimer: Timer? = null
@@ -86,6 +91,13 @@ class RunningService : Service() {
         metronomeManager = MetronomeManager(this, pacePredictionModel)
         createNotificationChannel()
         setupLocationCallback()
+        
+        // WakeLock 획득 (CPU 절전 방지)
+        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        wakeLock = powerManager.newWakeLock(
+            PowerManager.PARTIAL_WAKE_LOCK,
+            "Breeze::RunningWakeLock"
+        )
     }
     
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -318,6 +330,9 @@ class RunningService : Service() {
         lastSegmentTime = 0L
         currentSegmentIndex = 0
         
+        // WakeLock 획득 (최대 6시간)
+        wakeLock?.acquire(6 * 60 * 60 * 1000L)
+        
         // 스마트 BPM 설정
         metronomeManager?.configureSmartMode(
             targetPace = targetPaceSeconds,
@@ -350,7 +365,12 @@ class RunningService : Service() {
             }, 0L, 1000L)
         }
         
-        startForeground(NOTIFICATION_ID, createNotification())
+        // 포그라운드 서비스 시작 (location 타입 명시)
+        startForeground(
+            NOTIFICATION_ID, 
+            createNotification(),
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+        )
         
         val locationRequest = LocationRequest.Builder(
             Priority.PRIORITY_HIGH_ACCURACY,
@@ -395,6 +415,12 @@ class RunningService : Service() {
         updateTimer = null
         metronomeManager?.stop()
         fusedLocationClient.removeLocationUpdates(locationCallback)
+        
+        // WakeLock 해제
+        if (wakeLock?.isHeld == true) {
+            wakeLock?.release()
+        }
+        
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
@@ -410,6 +436,12 @@ class RunningService : Service() {
         updateTimer?.cancel()
         updateTimer = null
         metronomeManager?.release()
+        
+        // WakeLock 해제
+        if (wakeLock?.isHeld == true) {
+            wakeLock?.release()
+        }
+        
         if (isRunning) {
             fusedLocationClient.removeLocationUpdates(locationCallback)
         }
@@ -430,12 +462,18 @@ class RunningService : Service() {
         private const val LOCATION_FASTEST_INTERVAL_MS = 500L
         private const val MIN_DISTANCE_METERS = 2f
         
+        // 서비스 실행 상태 (앱 재시작 시 확인용)
+        @Volatile
+        var isServiceRunning = false
+            private set
+        
         fun startService(context: Context, targetPaceSeconds: Int) {
             val intent = Intent(context, RunningService::class.java).apply {
                 action = ACTION_START
                 putExtra(EXTRA_TARGET_PACE, targetPaceSeconds)
             }
             context.startForegroundService(intent)
+            isServiceRunning = true
         }
         
         fun pauseService(context: Context) {
@@ -457,6 +495,7 @@ class RunningService : Service() {
                 action = ACTION_STOP
             }
             context.startService(intent)
+            isServiceRunning = false
         }
     }
 }

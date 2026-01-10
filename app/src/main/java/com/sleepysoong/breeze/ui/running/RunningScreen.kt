@@ -5,8 +5,10 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
-import android.os.Build
+import android.net.Uri
 import android.os.IBinder
+import android.os.PowerManager
+import android.provider.Settings
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -29,8 +31,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -78,17 +82,68 @@ fun RunningScreen(
     var runningService by remember { mutableStateOf<RunningService?>(null) }
     var isBound by remember { mutableStateOf(false) }
     var hasLocationPermission by remember { mutableStateOf(false) }
+    var showBatteryDialog by remember { mutableStateOf(false) }
     
     val runningState by (runningService?.runningState ?: MutableStateFlow(RunningState())).collectAsState()
     val locationPoints by (runningService?.locationPoints ?: MutableStateFlow(emptyList())).collectAsState()
+    
+    // 배터리 최적화 제외 확인
+    fun checkBatteryOptimization(): Boolean {
+        val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+        return powerManager.isIgnoringBatteryOptimizations(context.packageName)
+    }
+    
+    // 배터리 최적화 제외 요청
+    fun requestBatteryOptimizationExemption() {
+        val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+            data = Uri.parse("package:${context.packageName}")
+        }
+        context.startActivity(intent)
+    }
     
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         hasLocationPermission = permissions.values.all { it }
         if (hasLocationPermission) {
-            RunningService.startService(context, targetPaceSeconds)
+            // 배터리 최적화 제외 확인
+            if (!checkBatteryOptimization()) {
+                showBatteryDialog = true
+            } else {
+                RunningService.startService(context, targetPaceSeconds)
+            }
         }
+    }
+    
+    // 배터리 최적화 제외 다이얼로그
+    if (showBatteryDialog) {
+        AlertDialog(
+            onDismissRequest = { 
+                showBatteryDialog = false
+                RunningService.startService(context, targetPaceSeconds)
+            },
+            title = { Text("배터리 최적화 해제") },
+            text = { 
+                Text("러닝 중 앱이 백그라운드에서 종료되지 않도록 배터리 최적화를 해제해주세요. 이 설정을 하지 않으면 러닝 기록이 유실될 수 있습니다.")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showBatteryDialog = false
+                    requestBatteryOptimizationExemption()
+                    RunningService.startService(context, targetPaceSeconds)
+                }) {
+                    Text("설정하기")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showBatteryDialog = false
+                    RunningService.startService(context, targetPaceSeconds)
+                }) {
+                    Text("나중에")
+                }
+            }
+        )
     }
     
     val serviceConnection = remember {
@@ -109,12 +164,9 @@ fun RunningScreen(
     LaunchedEffect(Unit) {
         val permissions = mutableListOf(
             Manifest.permission.ACCESS_FINE_LOCATION,
-            Manifest.permission.ACCESS_COARSE_LOCATION
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+            Manifest.permission.POST_NOTIFICATIONS
         )
-        
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            permissions.add(Manifest.permission.POST_NOTIFICATIONS)
-        }
         
         permissionLauncher.launch(permissions.toTypedArray())
         
