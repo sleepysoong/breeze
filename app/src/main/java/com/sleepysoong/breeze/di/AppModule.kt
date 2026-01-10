@@ -29,7 +29,9 @@ object AppModule {
             context,
             BreezeDatabase::class.java,
             "breeze_database"
-        ).build()
+        )
+            .addMigrations(BreezeDatabase.MIGRATION_1_2)
+            .build()
     }
     
     @Provides

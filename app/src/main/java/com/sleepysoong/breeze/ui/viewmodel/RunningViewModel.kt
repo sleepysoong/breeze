@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sleepysoong.breeze.data.local.entity.RunningRecordEntity
 import com.sleepysoong.breeze.data.repository.RunningRepository
+import com.sleepysoong.breeze.ml.ConditionAnalysis
 import com.sleepysoong.breeze.ml.PacePredictionModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -124,6 +125,37 @@ class RunningViewModel @Inject constructor(
     fun resetModel() {
         pacePredictionModel.resetModel()
         updateModelStatus()
+    }
+    
+    /**
+     * 현재 컨디션 분석 결과
+     */
+    fun getCurrentConditionAnalysis(): ConditionAnalysis {
+        return pacePredictionModel.getCurrentConditionAnalysis()
+    }
+    
+    /**
+     * 목표 거리의 예상 소요 시간 계산
+     * @param targetDistanceMeters 목표 거리 (m)
+     * @param targetPaceSeconds 목표 페이스 (초/km)
+     * @return 예상 소요 시간 (ms)
+     */
+    fun predictFinishTime(targetDistanceMeters: Double, targetPaceSeconds: Int): Long {
+        return pacePredictionModel.predictFinishTime(targetDistanceMeters, targetPaceSeconds)
+    }
+    
+    /**
+     * 요일별 컨디션 데이터
+     */
+    fun getDayOfWeekConditions(): Map<String, Float> {
+        return pacePredictionModel.getDayOfWeekConditions()
+    }
+    
+    /**
+     * 시간대별 컨디션 데이터
+     */
+    fun getHourBlockConditions(): Map<String, Float> {
+        return pacePredictionModel.getHourBlockConditions()
     }
     
     fun deleteRecord(record: RunningRecordEntity) {

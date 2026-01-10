@@ -39,10 +39,24 @@ class RunningRepository @Inject constructor(
         paceSegments: String = "[]"
     ): Long {
         val now = System.currentTimeMillis()
+        val startTime = now - elapsedTimeMs
         val calories = calculateCalories(distanceMeters)
         
+        // 시간 컨텍스트 데이터 계산
+        val startCalendar = Calendar.getInstance().apply { timeInMillis = startTime }
+        val dayOfWeek = startCalendar.get(Calendar.DAY_OF_WEEK) - 1 // 0=일요일
+        val hourOfDay = startCalendar.get(Calendar.HOUR_OF_DAY)
+        val isWeekend = dayOfWeek == 0 || dayOfWeek == 6
+        val month = startCalendar.get(Calendar.MONTH)
+        val season = when (month) {
+            in 2..4 -> 0   // 봄 (3~5월)
+            in 5..7 -> 1   // 여름 (6~8월)
+            in 8..10 -> 2  // 가을 (9~11월)
+            else -> 3      // 겨울 (12~2월)
+        }
+        
         val record = RunningRecordEntity(
-            startTime = now - elapsedTimeMs,
+            startTime = startTime,
             endTime = now,
             totalDistance = distanceMeters,
             totalTime = elapsedTimeMs,
@@ -50,7 +64,11 @@ class RunningRepository @Inject constructor(
             averagePace = averagePaceSeconds,
             calories = calories,
             routePoints = routePoints,
-            paceSegments = paceSegments
+            paceSegments = paceSegments,
+            dayOfWeek = dayOfWeek,
+            hourOfDay = hourOfDay,
+            isWeekend = isWeekend,
+            season = season
         )
         
         return runningRecordDao.insertRecord(record)

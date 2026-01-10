@@ -48,6 +48,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sleepysoong.breeze.data.local.entity.RunningRecordEntity
+import com.sleepysoong.breeze.ml.ConditionAnalysis
+import com.sleepysoong.breeze.ml.ConditionLevel
 import com.sleepysoong.breeze.ui.components.GlassCard
 import com.sleepysoong.breeze.ui.components.rememberHapticFeedback
 import com.sleepysoong.breeze.ui.theme.BreezeTheme
@@ -64,7 +66,9 @@ data class SegmentPrediction(
 fun PredictionScreen(
     hasTrainedModel: Boolean,
     trainingCount: Int,
-    allRecords: List<RunningRecordEntity>
+    allRecords: List<RunningRecordEntity>,
+    conditionAnalysis: ConditionAnalysis?,
+    onPredictFinishTime: (distanceMeters: Double, targetPaceSeconds: Int) -> Long
 ) {
     val haptic = rememberHapticFeedback()
     var targetDistanceKm by remember { mutableIntStateOf(5) }
@@ -78,6 +82,12 @@ fun PredictionScreen(
     val predictions = remember(targetDistanceKm, allRecords, showPrediction) {
         if (!showPrediction || allRecords.isEmpty()) emptyList()
         else calculateSegmentPredictions(targetDistanceKm, allRecords, avgPace)
+    }
+    
+    // AI 예상 소요 시간
+    val predictedFinishTimeMs = remember(targetDistanceKm, avgPace, showPrediction, conditionAnalysis) {
+        if (!showPrediction) 0L
+        else onPredictFinishTime(targetDistanceKm * 1000.0, avgPace)
     }
     
     Column(
@@ -107,6 +117,12 @@ fun PredictionScreen(
         if (!hasTrainedModel || allRecords.isEmpty()) {
             NoDataCard()
         } else {
+            // 현재 컨디션 분석 카드
+            conditionAnalysis?.let { analysis ->
+                ConditionAnalysisCard(analysis = analysis)
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+            
             GlassCard(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.padding(20.dp)) {
                     Text(
@@ -231,6 +247,15 @@ fun PredictionScreen(
             if (showPrediction && predictions.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(16.dp))
                 
+                // AI 예상 소요 시간 카드
+                if (predictedFinishTimeMs > 0) {
+                    AIPredictionCard(
+                        predictedTimeMs = predictedFinishTimeMs,
+                        conditionAnalysis = conditionAnalysis
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+                
                 PredictionResultCard(predictions = predictions, avgPace = avgPace)
                 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -274,6 +299,218 @@ private fun NoDataCard() {
                 style = BreezeTheme.typography.bodySmall,
                 color = BreezeTheme.colors.textTertiary
             )
+        }
+    }
+}
+
+@Composable
+private fun ConditionAnalysisCard(analysis: ConditionAnalysis) {
+    val conditionColor = when (analysis.conditionLevel) {
+        ConditionLevel.EXCELLENT -> BreezeTheme.colors.success
+        ConditionLevel.GOOD -> Color(0xFF4CAF50)
+        ConditionLevel.NORMAL -> BreezeTheme.colors.primary
+        ConditionLevel.FAIR -> BreezeTheme.colors.warning
+        ConditionLevel.POOR -> Color(0xFFE53935)
+    }
+    
+    val conditionText = when (analysis.conditionLevel) {
+        ConditionLevel.EXCELLENT -> "최고"
+        ConditionLevel.GOOD -> "좋음"
+        ConditionLevel.NORMAL -> "보통"
+        ConditionLevel.FAIR -> "약간 저조"
+        ConditionLevel.POOR -> "저조"
+    }
+    
+    val conditionDescription = when (analysis.conditionLevel) {
+        ConditionLevel.EXCELLENT -> "지금이 러닝하기 가장 좋은 시간이에요!"
+        ConditionLevel.GOOD -> "러닝하기 좋은 컨디션이에요"
+        ConditionLevel.NORMAL -> "평소와 비슷한 컨디션이에요"
+        ConditionLevel.FAIR -> "평소보다 조금 힘들 수 있어요"
+        ConditionLevel.POOR -> "컨디션이 좋지 않을 수 있어요"
+    }
+    
+    GlassCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "현재 컨디션",
+                    style = BreezeTheme.typography.titleMedium,
+                    color = BreezeTheme.colors.textPrimary
+                )
+                
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(conditionColor.copy(alpha = 0.2f))
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = conditionText,
+                        style = BreezeTheme.typography.labelLarge,
+                        color = conditionColor,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // 현재 시간 컨텍스트
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                ConditionContextItem(
+                    label = "요일",
+                    value = analysis.dayOfWeek
+                )
+                ConditionContextItem(
+                    label = "시간대",
+                    value = analysis.timeBlock
+                )
+                ConditionContextItem(
+                    label = "계절",
+                    value = analysis.season
+                )
+                ConditionContextItem(
+                    label = "구분",
+                    value = if (analysis.isWeekend) "주말" else "평일"
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Text(
+                text = conditionDescription,
+                style = BreezeTheme.typography.bodyMedium,
+                color = BreezeTheme.colors.textSecondary
+            )
+            
+            if (!analysis.hasEnoughData) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "더 많은 기록이 쌓이면 분석이 정확해져요",
+                    style = BreezeTheme.typography.bodySmall,
+                    color = BreezeTheme.colors.textTertiary
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConditionContextItem(label: String, value: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = value,
+            style = BreezeTheme.typography.titleMedium,
+            color = BreezeTheme.colors.textPrimary
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = label,
+            style = BreezeTheme.typography.bodySmall,
+            color = BreezeTheme.colors.textTertiary
+        )
+    }
+}
+
+@Composable
+private fun AIPredictionCard(
+    predictedTimeMs: Long,
+    conditionAnalysis: ConditionAnalysis?
+) {
+    val totalSeconds = (predictedTimeMs / 1000).toInt()
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds % 3600) / 60
+    val seconds = totalSeconds % 60
+    
+    val timeText = if (hours > 0) {
+        "${hours}시간 ${minutes}분 ${seconds}초"
+    } else {
+        "${minutes}분 ${seconds}초"
+    }
+    
+    val adjustmentPercent = conditionAnalysis?.let {
+        ((it.conditionMultiplier - 1.0f) * 100).toInt()
+    } ?: 0
+    
+    val adjustmentText = when {
+        adjustmentPercent > 0 -> "+${adjustmentPercent}%"
+        adjustmentPercent < 0 -> "${adjustmentPercent}%"
+        else -> "±0%"
+    }
+    
+    val adjustmentColor = when {
+        adjustmentPercent > 0 -> BreezeTheme.colors.warning
+        adjustmentPercent < 0 -> BreezeTheme.colors.success
+        else -> BreezeTheme.colors.textSecondary
+    }
+    
+    GlassCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "AI 예상 소요 시간",
+                        style = BreezeTheme.typography.titleMedium,
+                        color = BreezeTheme.colors.textPrimary
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "현재 컨디션 반영",
+                        style = BreezeTheme.typography.bodySmall,
+                        color = BreezeTheme.colors.textTertiary
+                    )
+                }
+                
+                Text(
+                    text = adjustmentText,
+                    style = BreezeTheme.typography.labelLarge,
+                    color = adjustmentColor
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Text(
+                text = timeText,
+                style = BreezeTheme.typography.displayMedium,
+                color = BreezeTheme.colors.primary,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center
+            )
+            
+            conditionAnalysis?.let { analysis ->
+                if (analysis.conditionMultiplier != 1.0f) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    val explanation = when {
+                        analysis.conditionMultiplier < 1.0f -> 
+                            "${analysis.dayOfWeek} ${analysis.timeBlock}에 평소보다 좋은 기록을 내는 편이에요"
+                        analysis.conditionMultiplier > 1.05f ->
+                            "${analysis.dayOfWeek} ${analysis.timeBlock}에 평소보다 힘들어하는 편이에요"
+                        else ->
+                            "평소와 비슷한 기록이 예상돼요"
+                    }
+                    
+                    Text(
+                        text = explanation,
+                        style = BreezeTheme.typography.bodySmall,
+                        color = BreezeTheme.colors.textSecondary,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
         }
     }
 }

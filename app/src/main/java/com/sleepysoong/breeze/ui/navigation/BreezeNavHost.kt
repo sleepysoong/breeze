@@ -196,11 +196,19 @@ fun BreezeNavHost(
             composable(BottomNavItem.Prediction.route) {
                 val modelStatus by viewModel.modelStatus.collectAsState()
                 val allRecords by viewModel.allRecords.collectAsState()
+                val conditionAnalysis = remember(modelStatus) {
+                    if (modelStatus.hasTrainedModel) viewModel.getCurrentConditionAnalysis()
+                    else null
+                }
                 
                 PredictionScreen(
                     hasTrainedModel = modelStatus.hasTrainedModel,
                     trainingCount = modelStatus.trainingCount,
-                    allRecords = allRecords
+                    allRecords = allRecords,
+                    conditionAnalysis = conditionAnalysis,
+                    onPredictFinishTime = { distance, targetPace ->
+                        viewModel.predictFinishTime(distance, targetPace)
+                    }
                 )
             }
             composable(BottomNavItem.Settings.route) {
