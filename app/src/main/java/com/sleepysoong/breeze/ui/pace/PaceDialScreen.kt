@@ -56,9 +56,6 @@ fun PaceDialScreen(
     var minutes by remember { mutableIntStateOf(initialPaceSeconds / 60) }
     var seconds by remember { mutableIntStateOf(initialPaceSeconds % 60) }
     
-    var minuteDragAccumulator by remember { mutableFloatStateOf(0f) }
-    var secondDragAccumulator by remember { mutableFloatStateOf(0f) }
-    
     var isMinutePulse by remember { mutableStateOf(false) }
     var isSecondPulse by remember { mutableStateOf(false) }
     
@@ -158,9 +155,7 @@ fun PaceDialScreen(
                     },
                     onLimitReached = {
                         view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                    },
-                    dragAccumulator = minuteDragAccumulator,
-                    onDragAccumulatorChange = { minuteDragAccumulator = it }
+                    }
                 )
                 
                 // 콜론 구분자
@@ -175,7 +170,7 @@ fun PaceDialScreen(
                 NumberDial(
                     value = seconds,
                     minValue = 0,
-                    maxValue = 59,
+                    maxValue = 55,
                     label = "초",
                     scale = secondScale,
                     formatValue = { String.format("%02d", it) },
@@ -187,8 +182,6 @@ fun PaceDialScreen(
                     onLimitReached = {
                         view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
                     },
-                    dragAccumulator = secondDragAccumulator,
-                    onDragAccumulatorChange = { secondDragAccumulator = it },
                     step = 5 // 5초 단위로 조절
                 )
             }
@@ -264,41 +257,41 @@ private fun NumberDial(
     formatValue: (Int) -> String = { it.toString() },
     onValueChange: (Int) -> Unit,
     onLimitReached: () -> Unit,
-    dragAccumulator: Float,
-    onDragAccumulatorChange: (Float) -> Unit,
     step: Int = 1
 ) {
+    var dragAccumulator by remember { mutableFloatStateOf(0f) }
+    
     GlassCard(
         modifier = Modifier
             .size(width = 120.dp, height = 200.dp)
-            .pointerInput(Unit) {
+            .pointerInput(value, minValue, maxValue, step) {
                 detectVerticalDragGestures(
                     onDragEnd = {
-                        onDragAccumulatorChange(0f)
+                        dragAccumulator = 0f
                     },
-                    onVerticalDrag = { _, dragAmount ->
-                        val newAccumulator = dragAccumulator + dragAmount
-                        onDragAccumulatorChange(newAccumulator)
+                    onVerticalDrag = { change, dragAmount ->
+                        change.consume()
+                        dragAccumulator += dragAmount
                         
-                        val threshold = 25f
-                        if (newAccumulator > threshold) {
-                            // 위로 드래그 = 값 증가 (느리게)
+                        val threshold = 20f
+                        if (dragAccumulator > threshold) {
+                            // 아래로 드래그 = 값 증가 (숫자가 위로 올라가는 느낌)
                             val newValue = value + step
                             if (newValue <= maxValue) {
                                 onValueChange(newValue)
                             } else {
                                 onLimitReached()
                             }
-                            onDragAccumulatorChange(0f)
-                        } else if (newAccumulator < -threshold) {
-                            // 아래로 드래그 = 값 감소 (빠르게)
+                            dragAccumulator = 0f
+                        } else if (dragAccumulator < -threshold) {
+                            // 위로 드래그 = 값 감소 (숫자가 아래로 내려가는 느낌)
                             val newValue = value - step
                             if (newValue >= minValue) {
                                 onValueChange(newValue)
                             } else {
                                 onLimitReached()
                             }
-                            onDragAccumulatorChange(0f)
+                            dragAccumulator = 0f
                         }
                     }
                 )
@@ -344,9 +337,9 @@ private fun NumberDial(
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // 이전 값 (위)
-                val prevValue = value + step
-                if (prevValue <= maxValue) {
+                // 이전 값 (위) - 드래그하면 이 값으로 감소
+                val prevValue = value - step
+                if (prevValue >= minValue) {
                     Text(
                         text = formatValue(prevValue),
                         style = BreezeTheme.typography.headlineMedium.copy(fontSize = 24.sp),
@@ -368,9 +361,9 @@ private fun NumberDial(
                 
                 Spacer(modifier = Modifier.height(12.dp))
                 
-                // 다음 값 (아래)
-                val nextValue = value - step
-                if (nextValue >= minValue) {
+                // 다음 값 (아래) - 드래그하면 이 값으로 증가
+                val nextValue = value + step
+                if (nextValue <= maxValue) {
                     Text(
                         text = formatValue(nextValue),
                         style = BreezeTheme.typography.headlineMedium.copy(fontSize = 24.sp),
