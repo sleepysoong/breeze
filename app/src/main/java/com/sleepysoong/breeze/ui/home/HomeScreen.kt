@@ -26,28 +26,49 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.drawBackdrop
+import com.kyant.backdrop.effects.blur
+import com.kyant.backdrop.effects.lens
+import com.kyant.backdrop.effects.vibrancy
+import com.kyant.backdrop.highlight.Highlight
+import com.kyant.backdrop.shadow.Shadow
 import com.sleepysoong.breeze.data.local.entity.RunningRecordEntity
-import com.sleepysoong.breeze.ui.components.GlassCard
+import com.sleepysoong.breeze.ui.components.liquidglass.InteractiveHighlight
+import com.sleepysoong.breeze.ui.components.liquidglass.LiquidCard
 import com.sleepysoong.breeze.ui.components.rememberHapticFeedback
 import com.sleepysoong.breeze.ui.theme.BreezeTheme
+import kotlin.math.abs
+import kotlin.math.atan2
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.tanh
 
 @Composable
 fun HomeScreen(
+    backdrop: Backdrop,
     latestRecord: RunningRecordEntity? = null,
     weeklyRecords: List<RunningRecordEntity> = emptyList(),
     onStartRunning: () -> Unit = {}
 ) {
     val haptic = rememberHapticFeedback()
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
+    val animationScope = rememberCoroutineScope()
+    
+    val interactiveHighlight = remember(animationScope) {
+        InteractiveHighlight(animationScope = animationScope)
+    }
+    
     val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.92f else 1f,
+        targetValue = 1f - (interactiveHighlight.pressProgress * 0.08f),
         animationSpec = tween(150),
         label = "startButtonScale"
     )
@@ -82,15 +103,56 @@ fun HomeScreen(
 
         Spacer(modifier = Modifier.height(60.dp))
 
-        // 러닝 시작 버튼
+        // Liquid Glass 러닝 시작 버튼
+        val density = LocalDensity.current
+        val blurPx = with(density) { 4.dp.toPx() }
+        val lensInnerPx = with(density) { 16.dp.toPx() }
+        val lensOuterPx = with(density) { 32.dp.toPx() }
+        val primaryColor = BreezeTheme.colors.primary
+        
         Box(
             modifier = Modifier
                 .size(160.dp)
                 .scale(scale)
-                .clip(CircleShape)
-                .background(BreezeTheme.colors.primary)
+                .drawBackdrop(
+                    backdrop = backdrop,
+                    shape = { CircleShape },
+                    effects = {
+                        vibrancy()
+                        blur(blurPx)
+                        lens(lensInnerPx, lensOuterPx)
+                    },
+                    highlight = {
+                        val progress = interactiveHighlight.pressProgress
+                        Highlight.Ambient.copy(alpha = 0.5f + progress * 0.5f)
+                    },
+                    shadow = {
+                        Shadow(
+                            radius = 16.dp,
+                            color = primaryColor.copy(alpha = 0.3f)
+                        )
+                    },
+                    layerBlock = {
+                        val progress = interactiveHighlight.pressProgress
+                        val scaleValue = 1f + progress * 0.02f
+                        
+                        val maxOffset = size.minDimension
+                        val initialDerivative = 0.05f
+                        val offset = interactiveHighlight.offset
+                        translationX = maxOffset * tanh(initialDerivative * offset.x / maxOffset)
+                        translationY = maxOffset * tanh(initialDerivative * offset.y / maxOffset)
+                        
+                        scaleX = scaleValue
+                        scaleY = scaleValue
+                    },
+                    onDrawSurface = {
+                        drawRect(primaryColor.copy(alpha = 0.9f))
+                    }
+                )
+                .then(interactiveHighlight.modifier)
+                .then(interactiveHighlight.gestureModifier)
                 .clickable(
-                    interactionSource = interactionSource,
+                    interactionSource = remember { MutableInteractionSource() },
                     indication = null
                 ) { haptic(); onStartRunning() },
             contentAlignment = Alignment.Center
@@ -99,7 +161,7 @@ fun HomeScreen(
                 imageVector = Icons.Filled.PlayArrow,
                 contentDescription = "러닝 시작",
                 modifier = Modifier.size(64.dp),
-                tint = BreezeTheme.colors.textPrimary
+                tint = Color.White
             )
         }
 
@@ -113,13 +175,12 @@ fun HomeScreen(
 
         Spacer(modifier = Modifier.height(48.dp))
 
-        // 최근 기록 요약 카드
-        GlassCard(
+        // 최근 기록 요약 카드 (Liquid Glass)
+        LiquidCard(
+            backdrop = backdrop,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column(
-                modifier = Modifier.padding(20.dp)
-            ) {
+            Column {
                 Text(
                     text = "최근 기록",
                     style = BreezeTheme.typography.titleMedium,
@@ -167,13 +228,12 @@ fun HomeScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // 주간 통계 카드
-        GlassCard(
+        // 주간 통계 카드 (Liquid Glass)
+        LiquidCard(
+            backdrop = backdrop,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column(
-                modifier = Modifier.padding(20.dp)
-            ) {
+            Column {
                 Text(
                     text = "이번 주",
                     style = BreezeTheme.typography.titleMedium,

@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.kyant.backdrop.Backdrop
 import com.sleepysoong.breeze.service.LatLngPoint
 import com.sleepysoong.breeze.ui.components.GlassCard
 import com.sleepysoong.breeze.ui.components.rememberHapticFeedback
@@ -40,6 +41,7 @@ import com.sleepysoong.breeze.ui.theme.BreezeTheme
 
 @Composable
 fun RunningResultScreen(
+    backdrop: Backdrop,
     distanceMeters: Double,
     elapsedTimeMs: Long,
     averagePaceSeconds: Int,

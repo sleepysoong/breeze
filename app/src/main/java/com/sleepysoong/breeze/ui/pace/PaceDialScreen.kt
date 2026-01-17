@@ -54,6 +54,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.kyant.backdrop.Backdrop
 import com.sleepysoong.breeze.ui.components.GlassCard
 import com.sleepysoong.breeze.ui.components.rememberHapticFeedback
 import com.sleepysoong.breeze.ui.theme.BreezeTheme
@@ -69,6 +70,7 @@ private const val DEFAULT_PACE = 390
 
 @Composable
 fun PaceDialScreen(
+    backdrop: Backdrop,
     onDismiss: () -> Unit,
     onStartRunning: (paceSeconds: Int) -> Unit
 ) {

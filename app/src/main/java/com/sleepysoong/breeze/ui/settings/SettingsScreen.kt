@@ -38,6 +38,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.kyant.backdrop.Backdrop
 import com.sleepysoong.breeze.ui.components.GlassCard
 import com.sleepysoong.breeze.ui.components.rememberHapticFeedback
 import com.sleepysoong.breeze.ui.theme.BreezeTheme
@@ -50,6 +51,7 @@ private const val KEY_USE_KM = "use_kilometers"
 
 @Composable
 fun SettingsScreen(
+    backdrop: Backdrop,
     viewModel: RunningViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
