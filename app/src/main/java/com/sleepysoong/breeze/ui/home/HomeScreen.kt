@@ -26,7 +26,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,20 +37,13 @@ import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.drawBackdrop
 import com.kyant.backdrop.effects.blur
-import com.kyant.backdrop.effects.lens
 import com.kyant.backdrop.effects.vibrancy
 import com.kyant.backdrop.highlight.Highlight
 import com.kyant.backdrop.shadow.Shadow
 import com.sleepysoong.breeze.data.local.entity.RunningRecordEntity
-import com.sleepysoong.breeze.ui.components.liquidglass.InteractiveHighlight
 import com.sleepysoong.breeze.ui.components.liquidglass.LiquidCard
 import com.sleepysoong.breeze.ui.components.rememberHapticFeedback
 import com.sleepysoong.breeze.ui.theme.BreezeTheme
-import kotlin.math.abs
-import kotlin.math.atan2
-import kotlin.math.cos
-import kotlin.math.sin
-import kotlin.math.tanh
 
 @Composable
 fun HomeScreen(
@@ -61,14 +53,12 @@ fun HomeScreen(
     onStartRunning: () -> Unit = {}
 ) {
     val haptic = rememberHapticFeedback()
-    val animationScope = rememberCoroutineScope()
     
-    val interactiveHighlight = remember(animationScope) {
-        InteractiveHighlight(animationScope = animationScope)
-    }
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
     
     val scale by animateFloatAsState(
-        targetValue = 1f - (interactiveHighlight.pressProgress * 0.08f),
+        targetValue = if (isPressed) 0.92f else 1f,
         animationSpec = tween(150),
         label = "startButtonScale"
     )
@@ -105,9 +95,7 @@ fun HomeScreen(
 
         // Liquid Glass 러닝 시작 버튼
         val density = LocalDensity.current
-        val blurPx = with(density) { 4.dp.toPx() }
-        val lensInnerPx = with(density) { 16.dp.toPx() }
-        val lensOuterPx = with(density) { 32.dp.toPx() }
+        val blurPx = with(density) { 8.dp.toPx() }
         val primaryColor = BreezeTheme.colors.primary
         
         Box(
@@ -120,11 +108,9 @@ fun HomeScreen(
                     effects = {
                         vibrancy()
                         blur(blurPx)
-                        lens(lensInnerPx, lensOuterPx)
                     },
                     highlight = {
-                        val progress = interactiveHighlight.pressProgress
-                        Highlight.Ambient.copy(alpha = 0.5f + progress * 0.5f)
+                        Highlight.Ambient.copy(alpha = if (isPressed) 0.8f else 0.5f)
                     },
                     shadow = {
                         Shadow(
@@ -132,27 +118,12 @@ fun HomeScreen(
                             color = primaryColor.copy(alpha = 0.3f)
                         )
                     },
-                    layerBlock = {
-                        val progress = interactiveHighlight.pressProgress
-                        val scaleValue = 1f + progress * 0.02f
-                        
-                        val maxOffset = size.minDimension
-                        val initialDerivative = 0.05f
-                        val offset = interactiveHighlight.offset
-                        translationX = maxOffset * tanh(initialDerivative * offset.x / maxOffset)
-                        translationY = maxOffset * tanh(initialDerivative * offset.y / maxOffset)
-                        
-                        scaleX = scaleValue
-                        scaleY = scaleValue
-                    },
                     onDrawSurface = {
                         drawRect(primaryColor.copy(alpha = 0.9f))
                     }
                 )
-                .then(interactiveHighlight.modifier)
-                .then(interactiveHighlight.gestureModifier)
                 .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
+                    interactionSource = interactionSource,
                     indication = null
                 ) { haptic(); onStartRunning() },
             contentAlignment = Alignment.Center
