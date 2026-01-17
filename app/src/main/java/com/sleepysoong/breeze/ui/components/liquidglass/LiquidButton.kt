@@ -116,9 +116,7 @@ fun LiquidButton(
                 } else {
                     Modifier
                 }
-            )
-            .height(48f.dp)
-            .padding(horizontal = 16f.dp),
+            ),
         horizontalArrangement = Arrangement.spacedBy(8f.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
         content = content
