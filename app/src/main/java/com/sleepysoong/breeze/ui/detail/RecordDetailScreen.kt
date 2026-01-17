@@ -51,7 +51,6 @@ import com.sleepysoong.breeze.data.local.entity.RunningRecordEntity
 import com.sleepysoong.breeze.ml.PaceSegment
 import com.sleepysoong.breeze.service.LatLngPoint
 import android.util.Log
-import com.kyant.backdrop.Backdrop
 import com.sleepysoong.breeze.ui.components.GlassCard
 import com.sleepysoong.breeze.ui.components.PaceGraph
 import com.sleepysoong.breeze.ui.components.SafeGoogleMap
@@ -63,7 +62,6 @@ import java.util.Locale
 
 @Composable
 fun RecordDetailScreen(
-    backdrop: Backdrop,
     record: RunningRecordEntity?,
     onBack: () -> Unit,
     onDelete: (RunningRecordEntity) -> Unit

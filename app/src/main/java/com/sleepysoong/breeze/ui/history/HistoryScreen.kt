@@ -29,7 +29,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
-import com.kyant.backdrop.Backdrop
 import com.sleepysoong.breeze.data.local.entity.RunningRecordEntity
 import com.sleepysoong.breeze.service.LatLngPoint
 import com.sleepysoong.breeze.ui.components.GlassCard
@@ -43,7 +42,6 @@ import java.util.Locale
 
 @Composable
 fun HistoryScreen(
-    backdrop: Backdrop,
     records: List<RunningRecordEntity> = emptyList(),
     onRecordClick: (RunningRecordEntity) -> Unit = {},
     onDeleteRecord: (RunningRecordEntity) -> Unit = {}

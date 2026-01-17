@@ -114,8 +114,4 @@ dependencies {
     // Google Maps
     implementation(libs.maps.compose)
     implementation(libs.play.services.maps)
-
-    // Liquid Glass
-    implementation(libs.backdrop)
-    implementation(libs.capsule)
 }

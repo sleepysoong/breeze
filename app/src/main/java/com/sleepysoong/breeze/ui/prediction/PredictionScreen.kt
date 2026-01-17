@@ -47,7 +47,6 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.kyant.backdrop.Backdrop
 import com.sleepysoong.breeze.data.local.entity.RunningRecordEntity
 import com.sleepysoong.breeze.ml.ConditionAnalysis
 import com.sleepysoong.breeze.ml.ConditionLevel
@@ -65,7 +64,6 @@ data class SegmentPrediction(
 
 @Composable
 fun PredictionScreen(
-    backdrop: Backdrop,
     hasTrainedModel: Boolean,
     trainingCount: Int,
     allRecords: List<RunningRecordEntity>,

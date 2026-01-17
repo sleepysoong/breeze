@@ -17,8 +17,6 @@ datastore = "1.1.1"
 gson = "2.11.0"
 mapsCompose = "6.2.1"
 playServicesMaps = "19.0.0"
-backdrop = "1.0.1"
-capsule = "2.1.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -63,10 +61,6 @@ gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
 # Google Maps
 maps-compose = { group = "com.google.maps.android", name = "maps-compose", version.ref = "mapsCompose" }
 play-services-maps = { group = "com.google.android.gms", name = "play-services-maps", version.ref = "playServicesMaps" }
-
-# Liquid Glass
-backdrop = { group = "io.github.kyant0", name = "backdrop", version.ref = "backdrop" }
-capsule = { group = "io.github.kyant0", name = "capsule", version.ref = "capsule" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

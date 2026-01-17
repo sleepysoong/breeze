@@ -59,7 +59,6 @@ import com.google.maps.android.compose.MapType
 import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.Polyline
 import com.google.maps.android.compose.rememberCameraPositionState
-import com.kyant.backdrop.Backdrop
 import com.sleepysoong.breeze.service.LatLngPoint
 import com.sleepysoong.breeze.service.MetronomeManager
 import com.sleepysoong.breeze.service.RunningService
@@ -73,7 +72,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 
 @Composable
 fun RunningScreen(
-    backdrop: Backdrop,
     targetPaceSeconds: Int,
     viewModel: RunningViewModel,
     onFinish: (distance: Double, time: Long, averagePace: Int) -> Unit,
