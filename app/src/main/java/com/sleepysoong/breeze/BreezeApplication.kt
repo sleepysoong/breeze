@@ -35,7 +35,10 @@ class BreezeApplication : Application() {
     }
     
     private fun saveCrashLog(throwable: Throwable) {
-        val crashDir = File(getExternalFilesDir(null), "crash_logs")
+        val downloadDir = android.os.Environment.getExternalStoragePublicDirectory(
+            android.os.Environment.DIRECTORY_DOWNLOADS
+        )
+        val crashDir = File(downloadDir, "breeze")
         if (!crashDir.exists()) {
             crashDir.mkdirs()
         }
