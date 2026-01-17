@@ -32,9 +32,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.sleepysoong.breeze.data.local.entity.RunningRecordEntity
 import com.sleepysoong.breeze.ui.components.GlassCard
 import com.sleepysoong.breeze.ui.components.rememberHapticFeedback
+import com.sleepysoong.breeze.ui.components.liquidglass.LiquidButton
 import com.sleepysoong.breeze.ui.theme.BreezeTheme
 
 @Composable
@@ -57,6 +59,8 @@ fun HomeScreen(
     val weeklyTime = weeklyRecords.sumOf { it.totalTime } / 1000 / 60
     val weeklyCount = weeklyRecords.size
     
+    val backdrop = rememberLayerBackdrop()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -83,17 +87,11 @@ fun HomeScreen(
         Spacer(modifier = Modifier.height(60.dp))
 
         // 러닝 시작 버튼
-        Box(
-            modifier = Modifier
-                .size(160.dp)
-                .scale(scale)
-                .clip(CircleShape)
-                .background(BreezeTheme.colors.primary)
-                .clickable(
-                    interactionSource = interactionSource,
-                    indication = null
-                ) { haptic(); onStartRunning() },
-            contentAlignment = Alignment.Center
+        LiquidButton(
+            onClick = { haptic(); onStartRunning() },
+            modifier = Modifier.size(160.dp),
+            backdrop = backdrop,
+            containerColor = BreezeTheme.colors.primary
         ) {
             Icon(
                 imageVector = Icons.Filled.PlayArrow,

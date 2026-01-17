@@ -111,4 +111,8 @@ dependencies {
     // Google Maps
     implementation(libs.maps.compose)
     implementation(libs.play.services.maps)
+
+    // Backdrop
+    implementation(project(":backdrop"))
+    implementation("io.github.kyant0:capsule:2.1.2")
 }

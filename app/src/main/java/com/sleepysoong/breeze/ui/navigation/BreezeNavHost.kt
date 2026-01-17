@@ -17,11 +17,7 @@ import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -30,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -42,6 +39,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.sleepysoong.breeze.service.LatLngPoint
 import com.sleepysoong.breeze.ui.detail.RecordDetailScreen
 import com.sleepysoong.breeze.ui.history.HistoryScreen
@@ -54,6 +52,8 @@ import com.sleepysoong.breeze.ui.settings.SettingsScreen
 import com.sleepysoong.breeze.ui.theme.BreezeTheme
 import com.sleepysoong.breeze.ui.viewmodel.RunningViewModel
 import com.sleepysoong.breeze.ui.viewmodel.SaveResult
+import com.sleepysoong.breeze.ui.components.liquidglass.LiquidBottomTab
+import com.sleepysoong.breeze.ui.components.liquidglass.LiquidBottomTabs
 
 object Routes {
     const val PACE_DIAL = "pace_dial"
@@ -337,16 +337,32 @@ fun BreezeBottomNavigation(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
     val view = LocalView.current
+    val backdrop = rememberLayerBackdrop()
 
-    NavigationBar(
-        containerColor = BreezeTheme.colors.surface,
-        contentColor = BreezeTheme.colors.textPrimary
+    val selectedIndex = bottomNavItems.indexOfFirst { item ->
+        currentDestination?.hierarchy?.any { it.route == item.route } == true
+    }.takeIf { it != -1 } ?: 0
+
+    LiquidBottomTabs(
+        selectedTabIndex = { selectedIndex },
+        onTabSelected = { index ->
+            val item = bottomNavItems[index]
+            view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+            navController.navigate(item.route) {
+                popUpTo(navController.graph.findStartDestination().id) {
+                    saveState = true
+                }
+                launchSingleTop = true
+                restoreState = true
+            }
+        },
+        backdrop = backdrop,
+        tabsCount = bottomNavItems.size,
+        modifier = Modifier.padding(16.dp)
     ) {
-        bottomNavItems.forEach { item ->
-            val selected = currentDestination?.hierarchy?.any { it.route == item.route } == true
-
-            NavigationBarItem(
-                selected = selected,
+        bottomNavItems.forEachIndexed { index, item ->
+            val selected = index == selectedIndex
+            LiquidBottomTab(
                 onClick = {
                     view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
                     navController.navigate(item.route) {
@@ -356,27 +372,13 @@ fun BreezeBottomNavigation(
                         launchSingleTop = true
                         restoreState = true
                     }
-                },
-                icon = {
-                    Icon(
-                        imageVector = if (selected) item.selectedIcon else item.unselectedIcon,
-                        contentDescription = item.title
-                    )
-                },
-                label = {
-                    Text(
-                        text = item.title,
-                        style = BreezeTheme.typography.labelSmall
-                    )
-                },
-                colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = BreezeTheme.colors.primary,
-                    selectedTextColor = BreezeTheme.colors.primary,
-                    unselectedIconColor = BreezeTheme.colors.textSecondary,
-                    unselectedTextColor = BreezeTheme.colors.textSecondary,
-                    indicatorColor = BreezeTheme.colors.primary.copy(alpha = 0.15f)
-                )
-            )
+                }
+            ) {
+                 Icon(
+                     imageVector = if (selected) item.selectedIcon else item.unselectedIcon,
+                     contentDescription = item.title
+                 )
+            }
         }
     }
 }

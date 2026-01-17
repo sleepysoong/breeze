@@ -59,6 +59,7 @@ import com.google.maps.android.compose.MapType
 import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.Polyline
 import com.google.maps.android.compose.rememberCameraPositionState
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.sleepysoong.breeze.service.LatLngPoint
 import com.sleepysoong.breeze.service.MetronomeManager
 import com.sleepysoong.breeze.service.RunningService
@@ -66,6 +67,7 @@ import com.sleepysoong.breeze.service.RunningState
 import com.sleepysoong.breeze.ui.components.GlassCard
 import com.sleepysoong.breeze.ui.components.SafeGoogleMap
 import com.sleepysoong.breeze.ui.components.rememberHapticFeedback
+import com.sleepysoong.breeze.ui.components.liquidglass.LiquidButton
 import com.sleepysoong.breeze.ui.theme.BreezeTheme
 import com.sleepysoong.breeze.ui.viewmodel.RunningViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -200,6 +202,8 @@ fun RunningScreen(
         0
     }
     
+    val backdrop = rememberLayerBackdrop()
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -325,10 +329,8 @@ fun RunningScreen(
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                RunningControlButton(
-                    icon = Icons.Default.Stop,
-                    contentDescription = "종료",
-                    isPrimary = false,
+                // Secondary Button (Stop)
+                LiquidButton(
                     onClick = {
                         haptic()
                         runningService?.let { service ->
@@ -339,15 +341,23 @@ fun RunningScreen(
                         }
                         RunningService.stopService(context)
                         onFinish(distanceMeters, elapsedTimeMs, averagePaceSeconds)
-                    }
-                )
+                    },
+                    modifier = Modifier.size(64.dp),
+                    backdrop = backdrop,
+                    containerColor = BreezeTheme.colors.cardBackground
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Stop,
+                        contentDescription = "종료",
+                        modifier = Modifier.size(32.dp),
+                        tint = BreezeTheme.colors.textPrimary
+                    )
+                }
                 
                 Spacer(modifier = Modifier.width(32.dp))
                 
-                RunningControlButton(
-                    icon = if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
-                    contentDescription = if (isPaused) "재개" else "일시정지",
-                    isPrimary = true,
+                // Primary Button (Pause/Resume)
+                LiquidButton(
                     onClick = {
                         haptic()
                         if (isPaused) {
@@ -355,8 +365,18 @@ fun RunningScreen(
                         } else {
                             RunningService.pauseService(context)
                         }
-                    }
-                )
+                    },
+                    modifier = Modifier.size(80.dp),
+                    backdrop = backdrop,
+                    containerColor = BreezeTheme.colors.primary
+                ) {
+                    Icon(
+                        imageVector = if (isPaused) Icons.Default.PlayArrow else Icons.Default.Pause,
+                        contentDescription = if (isPaused) "재개" else "일시정지",
+                        modifier = Modifier.size(40.dp),
+                        tint = BreezeTheme.colors.textPrimary
+                    )
+                }
             }
             
             Spacer(modifier = Modifier.height(32.dp))
@@ -382,45 +402,6 @@ private fun RunningStatItem(
             text = value,
             style = BreezeTheme.typography.headlineSmall,
             color = BreezeTheme.colors.textPrimary
-        )
-    }
-}
-
-@Composable
-private fun RunningControlButton(
-    icon: ImageVector,
-    contentDescription: String,
-    isPrimary: Boolean,
-    onClick: () -> Unit
-) {
-    val size = if (isPrimary) 80.dp else 64.dp
-    val iconSize = if (isPrimary) 40.dp else 32.dp
-    
-    Box(
-        modifier = Modifier
-            .size(size)
-            .clip(CircleShape)
-            .then(
-                if (isPrimary) {
-                    Modifier.background(BreezeTheme.colors.primary)
-                } else {
-                    Modifier
-                        .background(BreezeTheme.colors.cardBackground)
-                        .border(
-                            width = 1.dp,
-                            color = BreezeTheme.colors.cardBorder,
-                            shape = CircleShape
-                        )
-                }
-            )
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = contentDescription,
-            modifier = Modifier.size(iconSize),
-            tint = BreezeTheme.colors.textPrimary
         )
     }
 }

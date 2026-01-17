@@ -38,8 +38,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.sleepysoong.breeze.ui.components.GlassCard
 import com.sleepysoong.breeze.ui.components.rememberHapticFeedback
+import com.sleepysoong.breeze.ui.components.liquidglass.LiquidSlider
 import com.sleepysoong.breeze.ui.theme.BreezeTheme
 import com.sleepysoong.breeze.ui.viewmodel.RunningViewModel
 
@@ -67,6 +69,8 @@ fun SettingsScreen(
     var volume by remember { mutableFloatStateOf(prefs.getFloat(KEY_VOLUME, 1f)) }
     var useKilometers by remember { mutableStateOf(prefs.getBoolean(KEY_USE_KM, true)) }
     
+    val backdrop = rememberLayerBackdrop()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -253,18 +257,16 @@ fun SettingsScreen(
                     color = BreezeTheme.colors.textPrimary
                 )
                 Spacer(modifier = Modifier.height(16.dp))
-                Slider(
-                    value = tempVolume,
+                LiquidSlider(
+                    value = { tempVolume },
                     onValueChange = { 
                         tempVolume = it
                         volume = it
                     },
                     valueRange = 0f..1f,
-                    colors = SliderDefaults.colors(
-                        thumbColor = BreezeTheme.colors.primary,
-                        activeTrackColor = BreezeTheme.colors.primary,
-                        inactiveTrackColor = BreezeTheme.colors.cardBorder
-                    )
+                    visibilityThreshold = 0f,
+                    backdrop = backdrop,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         }
